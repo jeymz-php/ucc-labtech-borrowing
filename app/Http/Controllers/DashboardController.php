@@ -6,51 +6,48 @@ use App\Models\Category;
 use App\Models\Item;
 use App\Models\ItemUnit;
 use App\Models\User;
-use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
     public function index(): View
     {
+        $user = auth()->user();
+
+        if ($user->hasAnyRole([
+            'super_admin',
+            'admin',
+        ])) {
+            return $this->adminDashboard();
+        }
+
+        return $this->userDashboard();
+    }
+
+    private function adminDashboard(): View
+    {
         $statistics = [
-            'total_users' => User::where(
-                'account_status',
-                'active'
-            )->count(),
+            'users' => User::count(),
+            'categories' => Category::count(),
+            'items' => Item::count(),
+            'units' => ItemUnit::count(),
 
-            'total_categories' => Category::where(
-                'status',
-                'active'
-            )->count(),
-
-            'total_items' => Item::where(
-                'status',
-                'active'
-            )->count(),
-
-            'total_units' => ItemUnit::where(
-                'availability_status',
-                '!=',
-                'archived'
-            )->count(),
-
-            'available_units' => ItemUnit::where(
+            'available' => ItemUnit::where(
                 'availability_status',
                 'available'
             )->count(),
 
-            'borrowed_units' => ItemUnit::where(
+            'borrowed' => ItemUnit::where(
                 'availability_status',
                 'borrowed'
             )->count(),
 
-            'maintenance_units' => ItemUnit::where(
+            'maintenance' => ItemUnit::where(
                 'availability_status',
                 'maintenance'
             )->count(),
 
-            'lost_units' => ItemUnit::where(
+            'lost' => ItemUnit::where(
                 'availability_status',
                 'lost'
             )->count(),
@@ -58,41 +55,39 @@ class DashboardController extends Controller
 
         $recentItems = Item::with('category')
             ->latest()
-            ->limit(5)
+            ->take(5)
             ->get();
 
-        $recentUnits = ItemUnit::with([
-            'item.category',
-        ])
+        $recentUnits = ItemUnit::with('item')
             ->latest()
-            ->limit(5)
+            ->take(5)
             ->get();
-
-        $lowStockItems = Item::with('category')
-            ->where('status', 'active')
-            ->whereColumn(
-                'quantity_available',
-                '<=',
-                'minimum_stock'
-            )
-            ->orderBy('quantity_available')
-            ->limit(5)
-            ->get();
-
-        $availabilityBreakdown = ItemUnit::query()
-            ->select(
-                'availability_status',
-                DB::raw('COUNT(*) as total')
-            )
-            ->groupBy('availability_status')
-            ->pluck('total', 'availability_status');
 
         return view('dashboard', compact(
             'statistics',
             'recentItems',
-            'recentUnits',
-            'lowStockItems',
-            'availabilityBreakdown'
+            'recentUnits'
+        ));
+    }
+
+    private function userDashboard(): View
+    {
+        $availableEquipment = ItemUnit::where(
+            'availability_status',
+            'available'
+        )->count();
+
+        $totalEquipment = Item::count();
+
+        $recentItems = Item::with('category')
+            ->latest()
+            ->take(6)
+            ->get();
+
+        return view('dashboard.user', compact(
+            'availableEquipment',
+            'totalEquipment',
+            'recentItems'
         ));
     }
 }

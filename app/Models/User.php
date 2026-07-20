@@ -9,6 +9,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
@@ -26,15 +27,18 @@ class User extends Authenticatable implements MustVerifyEmail
         'suffix',
         'email',
         'password',
+        'profile_picture',
+        'contact_number',
         'campus',
-        'college',
         'department',
         'program',
         'year_level',
         'section',
-        'contact_number',
-        'profile_picture',
         'account_status',
+        'must_change_password',
+        'temporary_password_sent_at',
+        'terms_accepted_at',
+        'privacy_policy_accepted_at',
         'last_login_at',
     ];
 
@@ -46,7 +50,10 @@ class User extends Authenticatable implements MustVerifyEmail
     protected $casts = [
         'email_verified_at' => 'datetime',
         'last_login_at' => 'datetime',
-        'password' => 'string',
+        'temporary_password_sent_at' => 'datetime',
+        'terms_accepted_at' => 'datetime',
+        'privacy_policy_accepted_at' => 'datetime',
+        'must_change_password' => 'boolean',
     ];
 
     public function getFullNameAttribute(): string
@@ -67,6 +74,18 @@ class User extends Authenticatable implements MustVerifyEmail
             mb_substr($this->first_name, 0, 1) .
             mb_substr($this->last_name, 0, 1)
         );
+    }
+
+    public function getProfilePictureUrlAttribute(): ?string
+    {
+        if (
+            ! $this->profile_picture ||
+            ! Storage::disk('public')->exists($this->profile_picture)
+        ) {
+            return null;
+        }
+
+        return asset('storage/' . ltrim($this->profile_picture, '/'));
     }
 
     public function isActive(): bool

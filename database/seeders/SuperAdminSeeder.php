@@ -14,7 +14,7 @@ class SuperAdminSeeder extends Seeder
             [
                 'email' => env(
                     'SUPER_ADMIN_EMAIL',
-                    'superadmin@ucc.edu.ph'
+                    'labtech.borrowing@ucc-caloocan.edu.ph'
                 ),
             ],
             [
@@ -42,7 +42,7 @@ class SuperAdminSeeder extends Seeder
                 'password' => Hash::make(
                     env(
                         'SUPER_ADMIN_PASSWORD',
-                        'ChangeMe123!'
+                        'Admin@1234'
                     )
                 ),
 

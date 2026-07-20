@@ -29,7 +29,15 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(RouteServiceProvider::HOME);
+        $request->user()->update([
+            'last_login_at' => now(),
+        ]);
+
+        if ($request->user()->must_change_password) {
+            return redirect()->route('password.force.edit');
+        }
+
+        return redirect()->intended(route('dashboard'));
     }
 
     /**

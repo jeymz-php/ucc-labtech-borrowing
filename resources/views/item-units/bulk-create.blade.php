@@ -1,0 +1,16 @@
+<x-app-layout>
+    <x-slot name="header"><div><p class="text-sm font-medium text-green-700">Inventory / {{ $item->item_code }}</p><h2 class="text-2xl font-bold text-gray-900">Add Multiple Units</h2></div></x-slot>
+    <div class="mx-auto max-w-4xl"><form method="POST" action="{{ route('items.units.bulk-store',$item) }}" class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">@csrf
+        <div class="mb-6 rounded-xl bg-green-50 p-4"><p class="font-bold text-green-900">{{ $item->display_name }}</p><p class="text-sm text-green-700">Each unit receives a unique asset number and barcode.</p></div>
+        <div class="grid gap-6 md:grid-cols-2">
+            <div><label class="mb-2 block text-sm font-semibold">Number of Units</label><input type="number" name="quantity" min="1" max="250" value="{{ old('quantity',1) }}" required class="w-full rounded-xl border-gray-300 focus:border-green-600 focus:ring-green-600">@error('quantity')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror</div>
+            <div><label class="mb-2 block text-sm font-semibold">Condition</label><select name="condition" class="w-full rounded-xl border-gray-300">@foreach(['excellent'=>'Excellent','good'=>'Good','fair'=>'Fair','damaged'=>'Damaged','for_repair'=>'For Repair','unserviceable'=>'Unserviceable'] as $v=>$l)<option value="{{ $v }}" @selected(old('condition','good')===$v)>{{ $l }}</option>@endforeach</select></div>
+            <div><label class="mb-2 block text-sm font-semibold">Availability</label><select name="availability_status" class="w-full rounded-xl border-gray-300"><option value="available">Available</option><option value="maintenance">Maintenance</option></select></div>
+            <div><label class="mb-2 block text-sm font-semibold">Acquisition Date</label><input type="date" name="acquisition_date" value="{{ old('acquisition_date') }}" class="w-full rounded-xl border-gray-300"></div>
+            <div><label class="mb-2 block text-sm font-semibold">Cost Per Unit</label><input type="number" step="0.01" min="0" name="acquisition_cost" value="{{ old('acquisition_cost') }}" class="w-full rounded-xl border-gray-300"></div>
+            <div><label class="mb-2 block text-sm font-semibold">Assigned Location</label><input name="location" value="{{ old('location',$item->location) }}" class="w-full rounded-xl border-gray-300"></div>
+            <div class="md:col-span-2"><label class="mb-2 block text-sm font-semibold">Remarks</label><textarea name="remarks" rows="3" class="w-full rounded-xl border-gray-300">{{ old('remarks') }}</textarea></div>
+        </div>
+        <div class="mt-8 flex justify-end gap-3"><a href="{{ route('items.show',$item) }}" class="rounded-xl border border-gray-300 px-5 py-2.5 font-semibold">Cancel</a><button class="rounded-xl bg-green-700 px-5 py-2.5 font-semibold text-white">Generate Units</button></div>
+    </form></div>
+</x-app-layout>

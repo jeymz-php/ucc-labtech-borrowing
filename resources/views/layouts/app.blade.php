@@ -106,31 +106,25 @@
                     @can('view dashboard')
                         <a
                             href="{{ route('dashboard') }}"
-                            class="flex items-center gap-3 rounded-xl px-4 py-3
-                                   text-sm font-medium transition
-                                   {{ request()->routeIs('dashboard')
-                                       ? 'bg-white text-green-800 shadow-sm'
-                                       : 'text-green-100 hover:bg-green-700' }}"
+                            class="group flex items-center gap-3 rounded-xl px-3 py-2.5
+                                text-sm font-semibold transition duration-200
+                                {{ request()->routeIs('dashboard')
+                                        ? 'bg-green-800 text-white shadow-sm'
+                                        : 'text-green-50 hover:bg-green-700 hover:text-white' }}"
                         >
-                            <svg
-                                class="h-5 w-5"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
+                            <span
+                                class="flex h-6 w-6 shrink-0 items-center justify-center"
                             >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M3 12l2-2m0 0l7-7 7 7m-2
-                                       2v7a2 2 0 01-2 2H9a2 2 0
-                                       01-2-2v-7m10 0l2 2m-2-2v5a2
-                                       2 0 01-2 2h-1m-4 0H9a2 2 0
-                                       01-2-2v-5"
-                                />
-                            </svg>
+                                <img
+                                    src="{{ asset('images/icons/dashboard_icon.png') }}"
+                                    alt=""
+                                    aria-hidden="true"
+                                    class="h-5 w-5 object-contain transition duration-300
+                                        group-hover:scale-110"
+                                >
+                            </span>
 
-                            Dashboard
+                            <span>Dashboard</span>
                         </a>
                     @endcan
 
@@ -144,7 +138,7 @@
                                        : 'text-green-100 hover:bg-green-700' }}"
                         >
                             <svg
-                                class="h-5 w-5"
+                                class="h-6 w-6"
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
@@ -165,35 +159,22 @@
 
                     @can('view items')
                         <a
-                            href="#"
-                            class="flex items-center gap-3 rounded-xl px-4 py-3
-                                   text-sm font-medium text-green-100
-                                   transition hover:bg-green-700"
+                            href="{{ route('items.index') }}"
+                            class="group flex items-center gap-3 rounded-xl px-3 py-2.5
+                                text-sm font-semibold transition duration-200
+                                {{ request()->routeIs('items.*') || request()->routeIs('item-units.*')
+                                    ? 'bg-white text-green-800 shadow-sm'
+                                    : 'text-green-50 hover:bg-green-700 hover:text-white' }}"
                         >
-                            <svg
-                                class="h-5 w-5"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M20 7l-8-4-8 4m16 0l-8
-                                       4m8-4v10l-8 4m0-10L4
-                                       7m8 4v10M4 7v10l8 4"
-                                />
-                            </svg>
-
-                            Inventory
-
-                            <span
-                                class="ml-auto rounded-full bg-green-600
-                                       px-2 py-0.5 text-[10px] uppercase"
-                            >
-                                Soon
+                            <span class="flex h-6 w-6 shrink-0 items-center justify-center">
+                                <img
+                                    src="{{ asset('images/icons/inventory_icon.png') }}"
+                                    alt=""
+                                    aria-hidden="true"
+                                    class="h-5 w-5 object-contain transition duration-300 group-hover:scale-110"
+                                >
                             </span>
+                            <span>Inventory</span>
                         </a>
                     @endcan
 
@@ -205,7 +186,7 @@
                                    transition hover:bg-green-700"
                         >
                             <svg
-                                class="h-5 w-5"
+                                class="h-6 w-6"
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
@@ -250,7 +231,7 @@
                                    transition hover:bg-green-700"
                         >
                             <svg
-                                class="h-5 w-5"
+                                class="h-6 w-6"
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
@@ -283,7 +264,7 @@
                                    transition hover:bg-green-700"
                         >
                             <svg
-                                class="h-5 w-5"
+                                class="h-6 w-6"
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
@@ -313,7 +294,7 @@
                                    transition hover:bg-green-700"
                         >
                             <svg
-                                class="h-5 w-5"
+                                class="h-6 w-6"
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
@@ -392,12 +373,12 @@
         <div class="lg:pl-72">
             {{-- Top navigation --}}
             <header
-                class="sticky top-0 z-30 border-b border-gray-200
-                       bg-white/95 backdrop-blur"
+                class="sticky top-0 z-50 overflow-visible border-b
+                    border-gray-200 bg-white/95 backdrop-blur"
             >
                 <div
                     class="flex h-20 items-center justify-between
-                           px-4 sm:px-6 lg:px-8"
+                        overflow-visible px-4 sm:px-6 lg:px-8"
                 >
                     <div class="flex items-center gap-4">
                         <button
@@ -447,65 +428,202 @@
 
                         <div
                             x-data="{ open: false }"
+                            @keydown.escape.window="open = false"
                             class="relative"
                         >
                             <button
                                 type="button"
-                                class="flex h-11 w-11 items-center
-                                       justify-center rounded-full bg-green-100
-                                       font-bold text-green-800"
-                                @click="open = !open"
+                                @click.stop="open = !open"
+                                class="group relative flex h-11 w-11 items-center
+                                    justify-center overflow-hidden rounded-full
+                                    bg-green-100 text-sm font-bold text-green-700
+                                    ring-2 ring-transparent transition duration-500
+                                    hover:ring-green-200 focus:outline-none
+                                    focus:ring-green-300"
+                                :aria-expanded="open"
+                                aria-haspopup="true"
+                                aria-label="Open account menu"
                             >
-                                {{ auth()->user()->initials }}
+                                @if (auth()->user()->profile_picture_url)
+                                    <img
+                                        src="{{ auth()->user()->profile_picture_url }}"
+                                        alt="{{ auth()->user()->full_name }}"
+                                        class="absolute inset-0 h-full w-full object-cover
+                                            transition duration-500 ease-in-out"
+                                        :class="open
+                                            ? 'rotate-[360deg] scale-0 opacity-0'
+                                            : 'rotate-0 scale-100 opacity-100'"
+                                    >
+                                @else
+                                    <span
+                                        class="absolute inset-0 flex items-center justify-center
+                                            transition duration-500 ease-in-out"
+                                        :class="open
+                                            ? '-rotate-[360deg] scale-0 opacity-0'
+                                            : 'rotate-0 scale-100 opacity-100'"
+                                    >
+                                        {{ auth()->user()->initials }}
+                                    </span>
+                                @endif
+
+                                <img
+                                    src="{{ asset('images/icons/settings_icon.png') }}"
+                                    alt=""
+                                    aria-hidden="true"
+                                    class="absolute h-5 w-5 object-contain
+                                        transition duration-500 ease-in-out"
+                                    :class="open
+                                        ? 'rotate-[360deg] scale-100 opacity-100'
+                                        : 'rotate-0 scale-0 opacity-0'"
+                                >
                             </button>
 
                             <div
                                 x-show="open"
                                 x-cloak
                                 @click.outside="open = false"
-                                class="absolute right-0 mt-3 w-52 overflow-hidden
-                                       rounded-xl border border-gray-200
-                                       bg-white py-2 shadow-xl"
+                                x-transition:enter="transition ease-out duration-200"
+                                x-transition:enter-start="opacity-0 translate-y-2 scale-95"
+                                x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                                x-transition:leave="transition ease-in duration-150"
+                                x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                                x-transition:leave-end="opacity-0 translate-y-2 scale-95"
+                                class="absolute right-0 top-full z-[9999] mt-3 w-64
+                                    origin-top-right overflow-hidden rounded-2xl
+                                    border border-gray-200 bg-white shadow-2xl"
+                                style="display: none;"
                             >
-                                <a
-                                    href="{{ route('profile.edit') }}"
-                                    class="block px-4 py-2.5 text-sm
-                                           text-gray-700 hover:bg-gray-50"
-                                >
-                                    My Profile
-                                </a>
+                                <div class="border-b border-gray-100 px-4 py-4">
+                                    <p class="truncate text-sm font-bold text-gray-900">
+                                        {{ auth()->user()->full_name }}
+                                    </p>
 
-                                <form
-                                    method="POST"
-                                    action="{{ route('logout') }}"
-                                >
-                                    @csrf
+                                    <p class="mt-1 truncate text-xs text-gray-500">
+                                        {{ auth()->user()->email }}
+                                    </p>
 
-                                    <button
-                                        type="submit"
-                                        class="block w-full px-4 py-2.5 text-left
-                                               text-sm text-red-600
-                                               hover:bg-red-50"
+                                    <span
+                                        class="mt-2 inline-flex rounded-full bg-green-100
+                                            px-2.5 py-1 text-[10px] font-bold capitalize
+                                            text-green-700"
                                     >
-                                        Log Out
-                                    </button>
-                                </form>
+                                        {{ str_replace(
+                                            '_',
+                                            ' ',
+                                            auth()->user()->getRoleNames()->first() ?? 'user'
+                                        ) }}
+                                    </span>
+                                </div>
+
+                                <div class="p-2">
+                                    <a
+                                        href="{{ route('profile.edit') }}"
+                                        class="flex items-center gap-3 rounded-xl px-3 py-2.5
+                                            text-sm font-medium text-gray-700 transition
+                                            hover:bg-green-50 hover:text-green-700"
+                                    >
+                                        <svg
+                                            class="h-5 w-5"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <path
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                                stroke-width="2"
+                                                d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1z"
+                                            />
+                                        </svg>
+
+                                        <span>My Profile</span>
+                                    </a>
+
+                                    <a
+                                        href="{{ route('dashboard') }}"
+                                        class="flex items-center gap-3 rounded-xl px-3 py-2.5
+                                            text-sm font-medium text-gray-700 transition
+                                            hover:bg-green-50 hover:text-green-700"
+                                    >
+                                        <svg
+                                            class="h-5 w-5"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <path
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                                stroke-width="2"
+                                                d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+                                            />
+                                        </svg>
+
+                                        <span>Dashboard</span>
+                                    </a>
+                                </div>
+
+                                <div class="border-t border-gray-100 p-2">
+                                    <form
+                                        method="POST"
+                                        action="{{ route('logout') }}"
+                                    >
+                                        @csrf
+
+                                        <button
+                                            type="submit"
+                                            class="flex w-full items-center gap-3 rounded-xl
+                                                px-3 py-2.5 text-left text-sm font-medium
+                                                text-red-600 transition hover:bg-red-50"
+                                        >
+                                            <svg
+                                                class="h-5 w-5"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                viewBox="0 0 24 24"
+                                            >
+                                                <path
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    stroke-width="2"
+                                                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                                                />
+                                            </svg>
+
+                                            <span>Sign Out</span>
+                                        </button>
+                                    </form>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </header>
 
-            @isset($header)
-                <section class="border-b border-gray-200 bg-white">
-                    <div class="px-4 py-6 sm:px-6 lg:px-8">
+            @if (isset($header))
+                <header class="border-b border-gray-200 bg-white">
+                    <div
+                        class="mx-auto w-full max-w-[1600px]
+                            px-4 py-5
+                            sm:px-6
+                            lg:px-8
+                            xl:px-10"
+                    >
                         {{ $header }}
                     </div>
-                </section>
-            @endisset
+                </header>
+            @endif
 
-            <main>
-                {{ $slot }}
+            <main class="min-h-0 flex-1 overflow-y-auto bg-gray-50">
+                <div
+                    class="mx-auto w-full max-w-[1600px]
+                        px-4 py-6
+                        sm:px-6
+                        lg:px-8
+                        xl:px-10"
+                >
+                    {{ $slot }}
+                </div>
             </main>
         </div>
     </div>

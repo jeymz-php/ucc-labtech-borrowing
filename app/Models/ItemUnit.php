@@ -22,6 +22,7 @@ class ItemUnit extends Model
         'property_number',
         'acquisition_date',
         'acquisition_cost',
+        'location',
         'condition',
         'availability_status',
         'remarks',

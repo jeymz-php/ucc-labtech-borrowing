@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 
 class Item extends Model
 {
@@ -36,6 +37,25 @@ class Item extends Model
         'quantity_available' => 'integer',
         'minimum_stock' => 'integer',
     ];
+
+
+    public function getImageUrlAttribute(): ?string
+    {
+        if (! $this->image || ! Storage::disk('public')->exists($this->image)) {
+            return null;
+        }
+
+        return asset('storage/' . ltrim($this->image, '/'));
+    }
+
+    public function getDisplayNameAttribute(): string
+    {
+        return trim(implode(' ', array_filter([
+            $this->brand,
+            $this->name,
+            $this->model,
+        ])));
+    }
 
     public function category(): BelongsTo
     {
