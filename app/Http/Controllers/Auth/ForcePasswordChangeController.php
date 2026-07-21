@@ -11,26 +11,25 @@ use Illuminate\View\View;
 
 class ForcePasswordChangeController extends Controller
 {
-    public function edit(): View
+    public function edit(Request $request): View|RedirectResponse
     {
+        if (! $request->user()->must_change_password) {
+            return redirect()->route('dashboard');
+        }
+
         return view('auth.force-change-password');
     }
 
     public function update(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'current_password' => [
-                'required',
-                'current_password',
-            ],
-
             'password' => [
                 'required',
                 'confirmed',
                 Password::min(8)
+                    ->letters()
                     ->mixedCase()
-                    ->numbers()
-                    ->symbols(),
+                    ->numbers(),
             ],
         ]);
 
@@ -43,9 +42,6 @@ class ForcePasswordChangeController extends Controller
 
         return redirect()
             ->route('dashboard')
-            ->with(
-                'success',
-                'Your password has been changed successfully.'
-            );
+            ->with('success', 'Your password has been changed successfully.');
     }
 }

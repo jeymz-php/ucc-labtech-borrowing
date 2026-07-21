@@ -1,0 +1,17 @@
+<x-app-layout>
+    <x-slot name="header"><div><h1 class="text-xl font-bold text-gray-900">New Borrowing Request</h1><p class="mt-1 text-sm text-gray-500">Choose available physical units and provide the borrowing schedule.</p></div></x-slot>
+    <form method="POST" action="{{ route('borrowings.store') }}" class="space-y-6">@csrf
+        @if($errors->any())<div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"><ul class="list-disc space-y-1 pl-5">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
+        <section class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"><h2 class="font-bold text-gray-900">Request Information</h2><div class="mt-5 grid gap-5 sm:grid-cols-2">
+            <div class="sm:col-span-2"><label class="text-sm font-semibold text-gray-700">Purpose</label><textarea name="purpose" rows="3" required class="mt-2 w-full rounded-xl border-gray-300 focus:border-green-600 focus:ring-green-600">{{ old('purpose') }}</textarea></div>
+            <div><label class="text-sm font-semibold text-gray-700">Borrow date and time</label><input type="datetime-local" name="borrow_at" value="{{ old('borrow_at') }}" required class="mt-2 w-full rounded-xl border-gray-300 focus:border-green-600 focus:ring-green-600"></div>
+            <div><label class="text-sm font-semibold text-gray-700">Expected return</label><input type="datetime-local" name="expected_return_at" value="{{ old('expected_return_at') }}" required class="mt-2 w-full rounded-xl border-gray-300 focus:border-green-600 focus:ring-green-600"></div>
+            <div class="sm:col-span-2"><label class="text-sm font-semibold text-gray-700">Additional notes</label><textarea name="request_notes" rows="2" class="mt-2 w-full rounded-xl border-gray-300 focus:border-green-600 focus:ring-green-600">{{ old('request_notes') }}</textarea></div>
+        </div></section>
+        <section class="rounded-2xl border border-gray-200 bg-white shadow-sm"><div class="border-b border-gray-100 px-6 py-5"><h2 class="font-bold text-gray-900">Select Equipment Units</h2><p class="mt-1 text-sm text-gray-500">Maximum of 10 units per request.</p></div><div class="grid gap-3 p-6 sm:grid-cols-2 xl:grid-cols-3">
+            @forelse($units as $unit)<label class="flex cursor-pointer gap-3 rounded-xl border border-gray-200 p-4 transition hover:border-green-400 hover:bg-green-50"><input type="checkbox" name="item_unit_ids[]" value="{{ $unit->id }}" @checked(in_array($unit->id, old('item_unit_ids',[]))) class="mt-1 rounded border-gray-300 text-green-700 focus:ring-green-600"><span><span class="block font-semibold text-gray-900">{{ $unit->item->display_name }}</span><span class="mt-1 block text-xs text-gray-500">{{ $unit->asset_number }} · {{ ucfirst($unit->condition) }}</span><span class="mt-1 block text-xs text-gray-400">{{ $unit->location ?: $unit->item->location }}</span></span></label>
+            @empty<div class="sm:col-span-2 xl:col-span-3 py-10 text-center text-gray-500">No borrowable units are currently available.</div>@endforelse
+        </div></section>
+        <div class="flex justify-end gap-3"><a href="{{ route('borrowings.index') }}" class="rounded-xl border border-gray-300 px-5 py-2.5 text-sm font-semibold text-gray-700">Cancel</a><button class="rounded-xl bg-green-700 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-green-800">Submit Request</button></div>
+    </form>
+</x-app-layout>

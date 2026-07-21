@@ -93,6 +93,11 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->account_status === 'active';
     }
 
+    public function borrowings(): HasMany
+    {
+        return $this->hasMany(Borrowing::class);
+    }
+
     public function createdItems(): HasMany
     {
         return $this->hasMany(

@@ -51,6 +51,39 @@ class DashboardController extends Controller
                 'availability_status',
                 'lost'
             )->count(),
+
+            'total_users' => User::count(),
+
+            'total_items' => Item::count(),
+
+            'total_units' => ItemUnit::count(),
+
+            'total_categories' => Category::count(),
+
+            'available_units' => ItemUnit::where(
+                'availability_status',
+                'available'
+            )->count(),
+
+            'borrowed_units' => ItemUnit::where(
+                'availability_status',
+                'borrowed'
+            )->count(),
+
+            'reserved_units' => ItemUnit::where(
+                'availability_status',
+                'reserved'
+            )->count(),
+
+            'maintenance_units' => ItemUnit::where(
+                'availability_status',
+                'maintenance'
+            )->count(),
+
+            'lost_units' => ItemUnit::where(
+                'availability_status',
+                'lost'
+            )->count(),
         ];
 
         $recentItems = Item::with('category')
@@ -63,10 +96,22 @@ class DashboardController extends Controller
             ->take(5)
             ->get();
 
+        $lowStockItems = Item::query()
+            ->with('category')
+            ->whereColumn(
+                'quantity_available',
+                '<=',
+                'minimum_stock'
+            )
+            ->orderBy('quantity_available')
+            ->take(5)
+            ->get();
+
         return view('dashboard', compact(
             'statistics',
             'recentItems',
-            'recentUnits'
+            'recentUnits',
+            'lowStockItems'
         ));
     }
 

@@ -54,11 +54,21 @@ class RolePermissionSeeder extends Seeder
             'release borrowings',
             'receive returns',
             'cancel borrowings',
+            'extend borrowing due dates',
+            'view reservation calendar',
+            'reschedule borrowings',
+            'export reservation calendar',
+
+            // Maintenance
+            'view maintenance',
+            'create maintenance',
+            'manage maintenance',
 
             // Walk-in transactions
             'process walk-in borrowings',
             'scan university ids',
             'scan item barcodes',
+            'use scanner',
 
             // Tickets
             'create tickets',
@@ -78,6 +88,7 @@ class RolePermissionSeeder extends Seeder
 
             // Administration
             'view activity logs',
+            'export activity logs',
             'manage roles',
             'manage permissions',
             'manage settings',
@@ -126,6 +137,8 @@ class RolePermissionSeeder extends Seeder
             'view own tickets',
             'reply to tickets',
             'view announcements',
+            'view reservation calendar',
+            'export reservation calendar',
         ];
 
         $student->syncPermissions($borrowerPermissions);
@@ -164,10 +177,19 @@ class RolePermissionSeeder extends Seeder
             'release borrowings',
             'receive returns',
             'cancel borrowings',
+            'extend borrowing due dates',
+            'view reservation calendar',
+            'reschedule borrowings',
+            'export reservation calendar',
+
+            'view maintenance',
+            'create maintenance',
+            'manage maintenance',
 
             'process walk-in borrowings',
             'scan university ids',
             'scan item barcodes',
+            'use scanner',
 
             'create tickets',
             'view own tickets',
@@ -181,6 +203,8 @@ class RolePermissionSeeder extends Seeder
 
             'view reports',
             'export reports',
+            'view activity logs',
+            'export activity logs',
         ]);
 
         $superAdmin->syncPermissions(

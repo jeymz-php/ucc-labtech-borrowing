@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 import laravel from 'laravel-vite-plugin';
 
-const host = '192.168.0.211';
+const host = '192.168.0.127';
 
 export default defineConfig({
     plugins: [
@@ -27,7 +27,7 @@ export default defineConfig({
         },
 
         hmr: {
-            host,
+            host: host,
             port: 5173,
             clientPort: 5173,
             protocol: 'ws',

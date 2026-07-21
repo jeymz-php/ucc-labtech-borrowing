@@ -1,174 +1,132 @@
 <x-guest-layout>
-    <div class="mx-auto w-full max-w-md">
-        <div class="text-center lg:text-left">
-            <p
-                class="text-xs font-semibold uppercase tracking-wider
-                       text-green-700"
+    <div class="w-full">
+        <div class="mb-8 text-center">
+            <div
+                class="mx-auto flex h-16 w-16 items-center justify-center
+                       rounded-2xl bg-green-100 text-green-700"
             >
-                Account Security
-            </p>
+                <svg
+                    class="h-8 w-8"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M12 11c0-1.105.895-2 2-2s2 .895 2 2
+                           -.895 2-2 2-2-.895-2-2zm0 0V7a4 4
+                           0 118 0v4m-10 9h8a2 2 0 002-2v-5
+                           a2 2 0 00-2-2H6a2 2 0 00-2 2v5
+                           a2 2 0 002 2h4z"
+                    />
+                </svg>
+            </div>
 
-            <h1 class="mt-1 text-2xl font-bold text-gray-900 sm:text-3xl">
-                Create a new password
+            <h1 class="mt-5 text-2xl font-bold text-gray-900">
+                Change Your Password
             </h1>
 
-            <p class="mt-2 text-xs leading-5 text-gray-500 sm:text-sm">
-                You signed in using a temporary password. Create your
-                permanent password before continuing.
+            <p class="mt-2 text-sm leading-6 text-gray-500">
+                You are using a temporary password. Create a new password
+                before continuing to the system.
             </p>
         </div>
-
-        @if ($errors->any())
-            <div
-                class="mt-4 rounded-lg border border-red-200
-                       bg-red-50 px-3 py-2"
-            >
-                <ul class="list-inside list-disc text-xs text-red-700">
-                    @foreach ($errors->all() as $error)
-                        <li>{{ $error }}</li>
-                    @endforeach
-                </ul>
-            </div>
-        @endif
 
         <form
             method="POST"
             action="{{ route('password.force.update') }}"
-            class="mt-5 space-y-4"
-            x-data="{
-                showCurrent: false,
-                showNew: false,
-                showConfirmation: false
-            }"
+            class="space-y-5"
         >
             @csrf
             @method('PUT')
 
             <div>
                 <label
-                    for="current_password"
-                    class="block text-xs font-semibold text-gray-700 sm:text-sm"
-                >
-                    Temporary Password
-                </label>
-
-                <div class="relative mt-1.5">
-                    <input
-                        id="current_password"
-                        name="current_password"
-                        x-bind:type="showCurrent ? 'text' : 'password'"
-                        required
-                        autofocus
-                        autocomplete="current-password"
-                        class="block w-full rounded-xl border-gray-300
-                            px-3 py-2.5 pr-11 text-sm shadow-sm
-                            focus:border-green-600 focus:ring-green-600"
-                    >
-
-                    <button
-                        type="button"
-                        x-on:click="showCurrent = ! showCurrent"
-                        class="absolute inset-y-0 right-0 flex w-11
-                            items-center justify-center text-gray-400
-                            hover:text-green-700"
-                    >
-                        <span
-                            class="text-xs font-semibold"
-                            x-text="showCurrent ? 'Hide' : 'Show'"
-                        ></span>
-                    </button>
-                </div>
-            </div>
-
-            <div>
-                <label
                     for="password"
-                    class="block text-xs font-semibold text-gray-700 sm:text-sm"
+                    class="block text-sm font-semibold text-gray-700"
                 >
                     New Password
                 </label>
 
-                <div class="relative mt-1.5">
-                    <input
-                        id="password"
-                        name="password"
-                        x-bind:type="showNew ? 'text' : 'password'"
-                        required
-                        autocomplete="new-password"
-                        class="block w-full rounded-xl border-gray-300
-                            px-3 py-2.5 pr-11 text-sm shadow-sm
-                            focus:border-green-600 focus:ring-green-600"
-                    >
+                <input
+                    id="password"
+                    name="password"
+                    type="password"
+                    required
+                    autofocus
+                    autocomplete="new-password"
+                    class="mt-2 block w-full rounded-xl border-gray-300
+                           px-4 py-3 text-sm shadow-sm
+                           focus:border-green-600 focus:ring-green-600"
+                    placeholder="Enter your new password"
+                >
 
-                    <button
-                        type="button"
-                        x-on:click="showNew = ! showNew"
-                        class="absolute inset-y-0 right-0 flex w-11
-                            items-center justify-center text-gray-400
-                            hover:text-green-700"
-                    >
-                        <span
-                            class="text-xs font-semibold"
-                            x-text="showNew ? 'Hide' : 'Show'"
-                        ></span>
-                    </button>
-                </div>
+                @error('password')
+                    <p class="mt-2 text-sm text-red-600">
+                        {{ $message }}
+                    </p>
+                @enderror
             </div>
 
             <div>
                 <label
                     for="password_confirmation"
-                    class="block text-xs font-semibold text-gray-700 sm:text-sm"
+                    class="block text-sm font-semibold text-gray-700"
                 >
                     Confirm New Password
                 </label>
 
-                <div class="relative mt-1.5">
-                    <input
-                        id="password_confirmation"
-                        name="password_confirmation"
-                        x-bind:type="
-                            showConfirmation
-                                ? 'text'
-                                : 'password'
-                        "
-                        required
-                        autocomplete="new-password"
-                        class="block w-full rounded-xl border-gray-300
-                            px-3 py-2.5 pr-11 text-sm shadow-sm
-                            focus:border-green-600 focus:ring-green-600"
-                    >
+                <input
+                    id="password_confirmation"
+                    name="password_confirmation"
+                    type="password"
+                    required
+                    autocomplete="new-password"
+                    class="mt-2 block w-full rounded-xl border-gray-300
+                           px-4 py-3 text-sm shadow-sm
+                           focus:border-green-600 focus:ring-green-600"
+                    placeholder="Re-enter your new password"
+                >
+            </div>
 
-                    <button
-                        type="button"
-                        x-on:click="
-                            showConfirmation = ! showConfirmation
-                        "
-                        class="absolute inset-y-0 right-0 flex w-11
-                            items-center justify-center text-gray-400
-                            hover:text-green-700"
-                    >
-                        <span
-                            class="text-xs font-semibold"
-                            x-text="
-                                showConfirmation
-                                    ? 'Hide'
-                                    : 'Show'
-                            "
-                        ></span>
-                    </button>
-                </div>
+            <div
+                class="rounded-xl border border-amber-200 bg-amber-50
+                       px-4 py-3"
+            >
+                <p class="text-xs leading-5 text-amber-800">
+                    Use at least eight characters with uppercase and
+                    lowercase letters and a number.
+                </p>
             </div>
 
             <button
                 type="submit"
                 class="flex w-full items-center justify-center rounded-xl
-                       bg-green-700 px-4 py-2.5 text-sm font-semibold
-                       text-white transition hover:bg-green-800
-                       focus:outline-none focus:ring-2 focus:ring-green-600
+                       bg-green-700 px-5 py-3 text-sm font-semibold
+                       text-white shadow-sm transition
+                       hover:bg-green-800 focus:outline-none
+                       focus:ring-2 focus:ring-green-600
                        focus:ring-offset-2"
             >
-                Save New Password
+                Change Password and Continue
+            </button>
+        </form>
+
+        <form
+            method="POST"
+            action="{{ route('logout') }}"
+            class="mt-4"
+        >
+            @csrf
+
+            <button
+                type="submit"
+                class="w-full text-center text-sm font-semibold
+                       text-gray-500 transition hover:text-red-600"
+            >
+                Sign out
             </button>
         </form>
     </div>
