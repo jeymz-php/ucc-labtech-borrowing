@@ -68,7 +68,6 @@ class RolePermissionSeeder extends Seeder
             'process walk-in borrowings',
             'scan university ids',
             'scan item barcodes',
-            'use scanner',
 
             // Tickets
             'create tickets',
@@ -155,6 +154,8 @@ class RolePermissionSeeder extends Seeder
             'edit users',
             'activate users',
             'suspend users',
+            'archive users',
+            'restore users',
 
             'view categories',
             'create categories',
@@ -189,7 +190,6 @@ class RolePermissionSeeder extends Seeder
             'process walk-in borrowings',
             'scan university ids',
             'scan item barcodes',
-            'use scanner',
 
             'create tickets',
             'view own tickets',
@@ -205,6 +205,7 @@ class RolePermissionSeeder extends Seeder
             'export reports',
             'view activity logs',
             'export activity logs',
+            'manage settings',
         ]);
 
         $superAdmin->syncPermissions(

@@ -15,6 +15,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\ForcePasswordChangeController;
 use App\Http\Controllers\ScannerController;
+use App\Http\Controllers\BorrowingQrController;
 
 Route::get('/', function () {
     if (auth()->check()) {
@@ -208,4 +209,5 @@ Route::middleware([
     )->name('profile.destroy');
 });
 
+require __DIR__ . '/borrowing_portal.php';
 require __DIR__ . '/auth.php';

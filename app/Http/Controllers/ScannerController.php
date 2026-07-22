@@ -2,34 +2,35 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Borrowing;
+use App\Models\MaintenanceRecord;
+use App\Notifications\BorrowingStatusNotification;
 use App\Services\BarcodeScannerService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+use Illuminate\View\View;
 
 class ScannerController extends Controller
 {
     public function __construct(
         protected BarcodeScannerService $scanner
-    ) {}
+    ) {
+    }
 
-    /**
-     * Scanner page.
-     */
-    public function index()
+    public function index(): View
     {
         return view('scanner.index');
     }
 
-    /**
-     * Scan a borrowing QR code.
-     */
     public function borrowing(Request $request): JsonResponse
     {
-        $request->validate([
-            'code' => ['required', 'string'],
+        $data = $request->validate([
+            'code' => ['required', 'string', 'max:255'],
         ]);
 
-        $borrowing = $this->scanner->borrowing($request->code);
+        $borrowing = $this->scanner->borrowing($data['code']);
 
         if (! $borrowing) {
             return response()->json([
@@ -47,65 +48,122 @@ class ScannerController extends Controller
                 'status' => $borrowing->status,
                 'purpose' => $borrowing->purpose,
 
-                'borrow_at' => optional($borrowing->borrow_at)?->toDateTimeString(),
-                'expected_return_at' => optional($borrowing->expected_return_at)?->toDateTimeString(),
+                'borrow_at' => $borrowing->borrow_at?->toDateTimeString(),
+
+                'expected_return_at' => $borrowing
+                    ->expected_return_at
+                    ?->toDateTimeString(),
 
                 'user' => [
-                    'id' => $borrowing->user->id,
+                    'id' => $borrowing->user?->id,
+
+                    'id_number' => $borrowing
+                        ->user
+                        ?->id_number,
+
                     'name' => trim(
                         collect([
-                            $borrowing->user->first_name,
-                            $borrowing->user->middle_name,
-                            $borrowing->user->last_name,
-                            $borrowing->user->suffix,
-                        ])->filter()->implode(' ')
+                            $borrowing->user?->first_name,
+                            $borrowing->user?->middle_name,
+                            $borrowing->user?->last_name,
+                            $borrowing->user?->suffix,
+                        ])
+                            ->filter()
+                            ->implode(' ')
                     ),
                 ],
 
-                'items' => $borrowing->items->map(function ($item) {
-                    return [
-                        'item_unit_id' => $item->item_unit_id,
+                'items' => $borrowing
+                    ->items
+                    ->map(function ($line) {
+                        return [
+                            'borrowing_item_id' => $line->id,
 
-                        'barcode' => $item->itemUnit->barcode_value,
+                            'item_unit_id' => $line->item_unit_id,
 
-                        'asset_number' => $item->itemUnit->asset_number,
+                            'barcode' => $line
+                                ->itemUnit
+                                ->barcode_value,
 
-                        'item_name' => $item->itemUnit->item->name,
+                            'asset_number' => $line
+                                ->itemUnit
+                                ->asset_number,
 
-                        'category' => $item->itemUnit->item->category->name,
+                            'item_name' => $line
+                                ->itemUnit
+                                ->item
+                                ->name,
 
-                        'condition_out' => $item->condition_out,
-                        'condition_in' => $item->condition_in,
+                            'category' => $line
+                                ->itemUnit
+                                ->item
+                                ->category
+                                ?->name,
 
-                        'remarks_out' => $item->remarks_out,
-                        'remarks_in' => $item->remarks_in,
+                            'condition' => $line
+                                ->itemUnit
+                                ->condition,
 
-                        'availability_status'
-                            => $item->itemUnit->availability_status,
-                    ];
-                })->values(),
+                            'condition_out' => $line
+                                ->condition_out,
+
+                            'condition_in' => $line
+                                ->condition_in,
+
+                            'remarks_out' => $line
+                                ->remarks_out,
+
+                            'remarks_in' => $line
+                                ->remarks_in,
+
+                            'availability_status' => $line
+                                ->itemUnit
+                                ->availability_status,
+                        ];
+                    })
+                    ->values(),
             ],
         ]);
     }
 
-    /**
-     * Scan an equipment barcode.
-     */
     public function unit(Request $request): JsonResponse
     {
-        $request->validate([
-            'borrowing_id' => ['required', 'integer'],
-            'barcode' => ['required', 'string'],
-            'mode' => ['required', 'in:release,return'],
+        $data = $request->validate([
+            'borrowing_id' => [
+                'required',
+                'integer',
+                'exists:borrowings,id',
+            ],
+
+            'barcode' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+
+            'mode' => [
+                'required',
+                'in:release,return',
+            ],
         ]);
 
+        $borrowingRecord = Borrowing::query()
+            ->findOrFail($data['borrowing_id']);
+
         $borrowing = $this->scanner->borrowing(
-            \App\Models\Borrowing::findOrFail(
-                $request->borrowing_id
-            )->borrowing_code
+            $borrowingRecord->borrowing_code
         );
 
-        $unit = $this->scanner->itemUnit($request->barcode);
+        if (! $borrowing) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Borrowing record not found.',
+            ], 404);
+        }
+
+        $unit = $this->scanner->itemUnit(
+            $data['barcode']
+        );
 
         if (! $unit) {
             return response()->json([
@@ -114,13 +172,29 @@ class ScannerController extends Controller
             ], 404);
         }
 
-        $validation = $request->mode === 'release'
-            ? $this->scanner->validateRelease($borrowing, $unit)
-            : $this->scanner->validateReturn($borrowing, $unit);
+        $validation = $data['mode'] === 'release'
+            ? $this->scanner->validateRelease(
+                $borrowing,
+                $unit
+            )
+            : $this->scanner->validateReturn(
+                $borrowing,
+                $unit
+            );
 
         if (! $validation['success']) {
-            return response()->json($validation, 422);
+            return response()->json(
+                $validation,
+                422
+            );
         }
+
+        $borrowingItem = $borrowing
+            ->items
+            ->firstWhere(
+                'item_unit_id',
+                $unit->id
+            );
 
         return response()->json([
             'success' => true,
@@ -128,79 +202,517 @@ class ScannerController extends Controller
 
             'unit' => [
                 'id' => $unit->id,
-                'barcode' => $unit->barcode_value,
-                'asset_number' => $unit->asset_number,
-                'item_name' => $unit->item->name,
-                'category' => $unit->item->category->name,
-                'condition' => $unit->condition,
-                'availability_status' => $unit->availability_status,
+
+                'borrowing_item_id' => $borrowingItem
+                    ?->id,
+
+                'barcode' => $unit
+                    ->barcode_value,
+
+                'asset_number' => $unit
+                    ->asset_number,
+
+                'item_name' => $unit
+                    ->item
+                    ->name,
+
+                'category' => $unit
+                    ->item
+                    ->category
+                    ?->name,
+
+                'condition' => $unit
+                    ->condition,
+
+                'availability_status' => $unit
+                    ->availability_status,
             ],
         ]);
     }
 
-    public function finishRelease(Request $request): JsonResponse
-    {
-        $request->validate([
-            'borrowing_id' => ['required','integer'],
-            'items' => ['required','array']
+    public function finishRelease(
+        Request $request
+    ): JsonResponse {
+        abort_unless(
+            $request
+                ->user()
+                ->can('release borrowings'),
+            403
+        );
+
+        $data = $request->validate([
+            'borrowing_id' => [
+                'required',
+                'integer',
+                'exists:borrowings,id',
+            ],
+
+            'items' => [
+                'required',
+                'array',
+                'min:1',
+            ],
+
+            'items.*' => [
+                'required',
+                'integer',
+                'distinct',
+            ],
         ]);
 
-        $borrowing = Borrowing::with('items')
-            ->findOrFail($request->borrowing_id);
+        $borrowing = DB::transaction(
+            function () use ($request, $data) {
+                $borrowing = Borrowing::query()
+                    ->whereKey(
+                        $data['borrowing_id']
+                    )
+                    ->lockForUpdate()
+                    ->firstOrFail();
 
-        $expected = $borrowing->items
-            ->pluck('item_unit_id')
-            ->sort()
-            ->values();
+                $borrowing->load([
+                    'user',
+                    'items.itemUnit.item',
+                ]);
 
-        $received = collect($request->items)
-            ->sort()
-            ->values();
+                if (
+                    $borrowing->status
+                    !== 'approved'
+                ) {
+                    throw ValidationException::withMessages([
+                        'borrowing_id' =>
+                            'Only approved borrowings can be released.',
+                    ]);
+                }
 
-        if (!$expected->values()->all() == $received->values()->all()) {
-            return response()->json([
-                'success'=>false,
-                'message'=>'Not all equipment has been scanned.'
-            ],422);
-        }
+                $this->assertCompleteScan(
+                    $borrowing,
+                    $data['items']
+                );
 
-        // We'll connect this to your existing release logic next.
+                foreach (
+                    $borrowing->items as $line
+                ) {
+                    if (
+                        $line
+                            ->itemUnit
+                            ->availability_status
+                        !== 'reserved'
+                    ) {
+                        throw ValidationException::withMessages([
+                            'items' =>
+                                'The unit '
+                                .$line
+                                    ->itemUnit
+                                    ->asset_number
+                                .' is no longer reserved.',
+                        ]);
+                    }
+
+                    $line->update([
+                        'condition_out' => $line
+                            ->itemUnit
+                            ->condition,
+                    ]);
+
+                    $line->itemUnit->update([
+                        'availability_status' =>
+                            'borrowed',
+
+                        'updated_by' => $request
+                            ->user()
+                            ->id,
+                    ]);
+
+                    $line
+                        ->itemUnit
+                        ->item
+                        ->refreshQuantities();
+                }
+
+                $borrowing->update([
+                    'status' => 'released',
+
+                    'released_by' => $request
+                        ->user()
+                        ->id,
+
+                    'released_at' => now(),
+                ]);
+
+                return $borrowing;
+            }
+        );
+
+        $borrowing->user?->notify(
+            new BorrowingStatusNotification(
+                $borrowing,
+                'Equipment released',
+                'The equipment for '
+                .$borrowing->borrowing_code
+                .' has been released.'
+            )
+        );
 
         return response()->json([
-            'success'=>true,
-            'message'=>'Verification complete.'
+            'success' => true,
+
+            'message' =>
+                'Equipment released to borrower successfully.',
+
+            'borrowing' => [
+                'id' => $borrowing->id,
+
+                'code' => $borrowing
+                    ->borrowing_code,
+
+                'status' => $borrowing
+                    ->status,
+
+                'released_at' => $borrowing
+                    ->released_at
+                    ?->toDateTimeString(),
+            ],
         ]);
     }
 
-    public function finishReturn(Request $request): JsonResponse
-    {
-        $request->validate([
-            'borrowing_id'=>['required','integer'],
-            'items'=>['required','array']
+    public function finishReturn(
+        Request $request
+    ): JsonResponse {
+        abort_unless(
+            $request
+                ->user()
+                ->can('receive returns'),
+            403
+        );
+
+        $data = $request->validate([
+            'borrowing_id' => [
+                'required',
+                'integer',
+                'exists:borrowings,id',
+            ],
+
+            'items' => [
+                'required',
+                'array',
+                'min:1',
+            ],
+
+            'items.*' => [
+                'required',
+                'integer',
+                'distinct',
+            ],
+
+            'conditions' => [
+                'required',
+                'array',
+            ],
+
+            'conditions.*' => [
+                'required',
+                'in:excellent,good,fair,damaged,for_repair,unserviceable',
+            ],
+
+            'remarks' => [
+                'nullable',
+                'array',
+            ],
+
+            'remarks.*' => [
+                'nullable',
+                'string',
+                'max:1500',
+            ],
         ]);
 
-        $borrowing = Borrowing::with('items')
-            ->findOrFail($request->borrowing_id);
+        $borrowing = DB::transaction(
+            function () use ($request, $data) {
+                $borrowing = Borrowing::query()
+                    ->whereKey(
+                        $data['borrowing_id']
+                    )
+                    ->lockForUpdate()
+                    ->firstOrFail();
 
-        $expected = $borrowing->items
-            ->pluck('item_unit_id')
-            ->sort()
-            ->values();
+                $borrowing->load([
+                    'user',
+                    'items.itemUnit.item',
+                ]);
 
-        $received = collect($request->items)
-            ->sort()
-            ->values();
+                if (
+                    ! in_array(
+                        $borrowing->status,
+                        [
+                            'released',
+                            'overdue',
+                        ],
+                        true
+                    )
+                ) {
+                    throw ValidationException::withMessages([
+                        'borrowing_id' =>
+                            'Only released or overdue borrowings can be returned.',
+                    ]);
+                }
 
-        if (!$expected->values()->all() == $received->values()->all()) {
-            return response()->json([
-                'success'=>false,
-                'message'=>'Not all equipment has been scanned.'
-            ],422);
-        }
+                $this->assertCompleteScan(
+                    $borrowing,
+                    $data['items']
+                );
+
+                $this->assertCompleteInspection(
+                    $borrowing,
+                    $data['conditions']
+                );
+
+                $remarks = $data['remarks'] ?? [];
+
+                foreach (
+                    $borrowing->items as $line
+                ) {
+                    $condition = $data[
+                        'conditions'
+                    ][$line->id];
+
+                    $remark = $remarks[
+                        $line->id
+                    ] ?? null;
+
+                    $availability = in_array(
+                        $condition,
+                        [
+                            'excellent',
+                            'good',
+                            'fair',
+                        ],
+                        true
+                    )
+                        ? 'available'
+                        : 'maintenance';
+
+                    $line->update([
+                        'condition_in' =>
+                            $condition,
+
+                        'remarks_in' =>
+                            $remark,
+                    ]);
+
+                    $line->itemUnit->update([
+                        'condition' =>
+                            $condition,
+
+                        'availability_status' =>
+                            $availability,
+
+                        'updated_by' => $request
+                            ->user()
+                            ->id,
+                    ]);
+
+                    if (
+                        $availability === 'maintenance'
+                        && ! MaintenanceRecord::query()
+                            ->where(
+                                'item_unit_id',
+                                $line
+                                    ->itemUnit
+                                    ->id
+                            )
+                            ->whereIn(
+                                'status',
+                                [
+                                    'reported',
+                                    'assigned',
+                                    'in_progress',
+                                ]
+                            )
+                            ->exists()
+                    ) {
+                        MaintenanceRecord::create([
+                            'maintenance_code' =>
+                                $this
+                                    ->nextMaintenanceCode(),
+
+                            'item_unit_id' => $line
+                                ->itemUnit
+                                ->id,
+
+                            'borrowing_id' =>
+                                $borrowing->id,
+
+                            'reported_by' => $request
+                                ->user()
+                                ->id,
+
+                            'priority' => in_array(
+                                $condition,
+                                [
+                                    'unserviceable',
+                                    'damaged',
+                                ],
+                                true
+                            )
+                                ? 'high'
+                                : 'medium',
+
+                            'issue_title' =>
+                                'Issue found during equipment return',
+
+                            'issue_description' =>
+                                $remark
+                                ?: 'The unit was returned with a condition requiring inspection or repair.',
+
+                            'condition_before' =>
+                                $condition,
+                        ]);
+                    }
+
+                    $line
+                        ->itemUnit
+                        ->item
+                        ->refreshQuantities();
+                }
+
+                $borrowing->update([
+                    'status' => 'returned',
+
+                    'received_by' => $request
+                        ->user()
+                        ->id,
+
+                    'returned_at' => now(),
+                ]);
+
+                return $borrowing;
+            }
+        );
+
+        $borrowing->user?->notify(
+            new BorrowingStatusNotification(
+                $borrowing,
+                'Return completed',
+                $borrowing->borrowing_code
+                .' was returned successfully.'
+            )
+        );
 
         return response()->json([
-            'success'=>true,
-            'message'=>'Verification complete.'
+            'success' => true,
+
+            'message' =>
+                'Return processed successfully.',
+
+            'borrowing' => [
+                'id' => $borrowing->id,
+
+                'code' => $borrowing
+                    ->borrowing_code,
+
+                'status' => $borrowing
+                    ->status,
+
+                'returned_at' => $borrowing
+                    ->returned_at
+                    ?->toDateTimeString(),
+            ],
         ]);
+    }
+
+    private function assertCompleteScan(
+        Borrowing $borrowing,
+        array $scannedItemUnitIds
+    ): void {
+        $expected = $borrowing
+            ->items
+            ->pluck('item_unit_id')
+            ->map(
+                fn ($id) => (int) $id
+            )
+            ->sort()
+            ->values()
+            ->all();
+
+        $received = collect(
+            $scannedItemUnitIds
+        )
+            ->map(
+                fn ($id) => (int) $id
+            )
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+
+        if ($expected !== $received) {
+            throw ValidationException::withMessages([
+                'items' =>
+                    'Not all required equipment has been scanned.',
+            ]);
+        }
+    }
+
+    private function assertCompleteInspection(
+        Borrowing $borrowing,
+        array $conditions
+    ): void {
+        $missingItems = $borrowing
+            ->items
+            ->filter(
+                fn ($line) =>
+                    ! array_key_exists(
+                        $line->id,
+                        $conditions
+                    )
+            )
+            ->map(
+                fn ($line) =>
+                    $line
+                        ->itemUnit
+                        ->asset_number
+                    ?: $line
+                        ->itemUnit
+                        ->barcode_value
+            )
+            ->values();
+
+        if ($missingItems->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'conditions' =>
+                    'Select a return condition for every equipment unit.',
+            ]);
+        }
+    }
+
+    private function nextMaintenanceCode(): string
+    {
+        $prefix = 'MNT-'
+            .now()->format('Ym')
+            .'-';
+
+        $lastCode = MaintenanceRecord::query()
+            ->where(
+                'maintenance_code',
+                'like',
+                $prefix.'%'
+            )
+            ->lockForUpdate()
+            ->orderByDesc('id')
+            ->value('maintenance_code');
+
+        $number = $lastCode
+            ? ((int) substr(
+                $lastCode,
+                -5
+            )) + 1
+            : 1;
+
+        return $prefix.str_pad(
+            (string) $number,
+            5,
+            '0',
+            STR_PAD_LEFT
+        );
     }
 }

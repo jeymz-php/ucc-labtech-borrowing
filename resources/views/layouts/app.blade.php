@@ -189,95 +189,26 @@
                     @can('view reservation calendar')
                         <a
                             href="{{ route('calendar.index') }}"
-                            class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition
-                                   {{ request()->routeIs('calendar.*') ? 'bg-white text-green-800 shadow-sm' : 'text-green-100 hover:bg-green-700' }}"
+                            class="flex items-center gap-3 rounded-xl px-4 py-3
+                                text-sm font-medium transition
+                                {{ request()->routeIs('calendar.*')
+                                        ? 'bg-white text-green-800 shadow-sm'
+                                        : 'text-green-100 hover:bg-green-700' }}"
                         >
-                            <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-green-100 text-xs font-black text-green-800">C</span>
+                            <img
+                                src="{{ asset('images/icons/calendar_logo.png') }}"
+                                alt=""
+                                aria-hidden="true"
+                                class="h-5 w-5 shrink-0 object-contain"
+                            >
+
                             Reservation Calendar
                         </a>
                     @endcan
                 </div>
 
-                <div
-                    class="mb-3 mt-8 px-3 text-xs font-semibold uppercase
-                           tracking-wider text-green-300"
-                >
-                    Administration
-                </div>
+                @include('layouts.partials.administration-links')
 
-                <div class="space-y-1">
-                    @can('view users')
-                        <a
-                            href="#"
-                            class="flex items-center gap-3 rounded-xl px-4 py-3
-                                   text-sm font-medium text-green-100
-                                   transition hover:bg-green-700"
-                        >
-                            <img
-                                src="{{ asset('images/icons/users_icon.png') }}"
-                                alt=""
-                                aria-hidden="true"
-                                class="h-5 w-5 shrink-0 object-contain"
-                            >
-
-                            Users
-                        </a>
-                    @endcan
-
-                    @can('view maintenance')
-                        <a
-                            href="{{ route('maintenance.index') }}"
-                            class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition
-                                   {{ request()->routeIs('maintenance.*') ? 'bg-white text-green-800 shadow-sm' : 'text-green-100 hover:bg-green-700' }}"
-                        >
-                            <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-green-100 text-xs font-black text-green-800">M</span>
-                            Maintenance
-                        </a>
-                    @endcan
-
-                    @can('view reports')
-                        <a
-                            href="{{ route('reports.index') }}"
-                            class="flex items-center gap-3 rounded-xl px-4 py-3
-                                   text-sm font-medium text-green-100
-                                   transition hover:bg-green-700"
-                        >
-                            <img
-                                src="{{ asset('images/icons/reports_icon.png') }}"
-                                alt=""
-                                aria-hidden="true"
-                                class="h-5 w-5 shrink-0 object-contain"
-                            >
-
-                            Reports
-                        </a>
-                    @endcan
-
-                    @can('view activity logs')
-                        <a href="{{ route('audit-logs.index') }}" class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition {{ request()->routeIs('audit-logs.*') ? 'bg-white text-green-800 shadow-sm' : 'text-green-100 hover:bg-green-700' }}">
-                            <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-green-100 text-xs font-black text-green-800">A</span>
-                            Audit Logs
-                        </a>
-                    @endcan
-
-                    @can('manage settings')
-                        <a
-                            href="#"
-                            class="flex items-center gap-3 rounded-xl px-4 py-3
-                                   text-sm font-medium text-green-100
-                                   transition hover:bg-green-700"
-                        >
-                            <img
-                                src="{{ asset('images/icons/settings_icon.png') }}"
-                                alt=""
-                                aria-hidden="true"
-                                class="h-5 w-5 shrink-0 object-contain"
-                            >
-
-                            Settings
-                        </a>
-                    @endcan
-                </div>
             </nav>
 
             {{-- Sidebar user --}}
@@ -356,9 +287,7 @@
                     </div>
 
                     <div class="flex items-center gap-3">
-                        <div
-                            class="hidden text-right sm:block"
-                        >
+                        <div class="hidden text-right sm:block">
                             <div class="text-sm font-semibold text-gray-900">
                                 {{ auth()->user()->full_name }}
                             </div>
@@ -367,6 +296,8 @@
                                 {{ auth()->user()->email }}
                             </div>
                         </div>
+
+                        @include('layouts.partials.topbar-borrowing-portal-qr')
                         <div x-data="{ open: false }" @keydown.escape.window="open = false" @click.outside="open = false" class="relative">
                             <button type="button" @click="open = !open" class="relative flex h-11 w-11 items-center justify-center rounded-full border border-gray-200 text-gray-600 transition hover:bg-gray-50" aria-label="Notifications" :aria-expanded="open">
                                 <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>

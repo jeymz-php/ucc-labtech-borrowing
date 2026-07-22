@@ -14,7 +14,7 @@ class ForcePasswordChangeController extends Controller
     public function edit(Request $request): View|RedirectResponse
     {
         if (! $request->user()->must_change_password) {
-            return redirect()->route('dashboard');
+            return redirect()->intended(route('dashboard'));
         }
 
         return view('auth.force-change-password');
@@ -41,7 +41,10 @@ class ForcePasswordChangeController extends Controller
         $request->session()->regenerate();
 
         return redirect()
-            ->route('dashboard')
-            ->with('success', 'Your password has been changed successfully.');
+            ->intended(route('dashboard'))
+            ->with(
+                'success',
+                'Your password has been changed successfully.'
+            );
     }
 }
