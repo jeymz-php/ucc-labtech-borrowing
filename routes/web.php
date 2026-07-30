@@ -16,6 +16,28 @@ use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\ForcePasswordChangeController;
 use App\Http\Controllers\ScannerController;
 use App\Http\Controllers\BorrowingQrController;
+use App\Http\Controllers\UserGuideController;
+
+
+/*
+|--------------------------------------------------------------------------
+| Public User Guide
+|--------------------------------------------------------------------------
+|
+| The manual is available from the login page and from inside the system.
+| The PDF remains inside the protected Laravel project and is streamed
+| through these routes instead of being exposed as a public file.
+|
+*/
+Route::get(
+    '/user-guide',
+    [UserGuideController::class, 'show']
+)->name('user-guide.show');
+
+Route::get(
+    '/user-guide/download',
+    [UserGuideController::class, 'download']
+)->name('user-guide.download');
 
 Route::get('/', function () {
     if (auth()->check()) {
