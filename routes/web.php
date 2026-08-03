@@ -12,10 +12,78 @@ use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\ReservationCalendarController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\ForcePasswordChangeController;
 use App\Http\Controllers\ScannerController;
-use App\Http\Controllers\BorrowingQrController;
+use App\Http\Controllers\UserGuideController;
+use App\Http\Controllers\GuestBorrowingController;
+use App\Http\Controllers\StaffRegistrationController;
+
+
+/*
+|--------------------------------------------------------------------------
+| Public User Guide
+|--------------------------------------------------------------------------
+|
+| The manual is available from the login page and from inside the system.
+| The PDF remains inside the protected Laravel project and is streamed
+| through these routes instead of being exposed as a public file.
+|
+*/
+Route::get(
+    '/user-guide',
+    [UserGuideController::class, 'show']
+)->name('user-guide.show');
+
+Route::get(
+    '/user-guide/download',
+    [UserGuideController::class, 'download']
+)->name('user-guide.download');
+
+
+/*
+|--------------------------------------------------------------------------
+| Public Guest Borrowing
+|--------------------------------------------------------------------------
+*/
+Route::get('/guest-borrow', [GuestBorrowingController::class, 'create'])
+    ->middleware('throttle:guest-pages')
+    ->name('guest-borrowings.create');
+
+Route::get('/guest-borrow/inventory', [GuestBorrowingController::class, 'inventory'])
+    ->middleware('throttle:guest-live')
+    ->name('guest-borrowings.inventory');
+
+Route::get('/guest-borrow/{token}', [GuestBorrowingController::class, 'track'])
+    ->where('token', '[A-Za-z0-9]{64}')
+    ->middleware('throttle:guest-pages')
+    ->name('guest-borrowings.track');
+
+Route::get('/guest-borrow/{token}/status', [GuestBorrowingController::class, 'status'])
+    ->where('token', '[A-Za-z0-9]{64}')
+    ->middleware('throttle:guest-live')
+    ->name('guest-borrowings.status');
+
+Route::get('/guest-borrow/{token}/qr', [GuestBorrowingController::class, 'qr'])
+    ->where('token', '[A-Za-z0-9]{64}')
+    ->middleware('throttle:guest-pages')
+    ->name('guest-borrowings.qr');
+
+Route::post('/guest-borrow', [GuestBorrowingController::class, 'store'])
+    ->middleware('throttle:guest-submit')
+    ->name('guest-borrowings.store');
+
+/*
+|--------------------------------------------------------------------------
+| Private Staff Administrator Registration
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['guest', 'throttle:staff-registration'])->group(function () {
+    Route::get('/staff-register/{token}', [StaffRegistrationController::class, 'create'])
+        ->name('staff-registration.create');
+
+    Route::post('/staff-register/{token}', [StaffRegistrationController::class, 'store'])
+        ->name('staff-registration.store');
+});
 
 Route::get('/', function () {
     if (auth()->check()) {
@@ -23,18 +91,6 @@ Route::get('/', function () {
     }
 
     return redirect()->route('login');
-});
-
-Route::middleware('guest')->group(function () {
-    Route::get(
-        'register',
-        [RegisteredUserController::class, 'create']
-    )->name('register');
-
-    Route::post(
-        'register',
-        [RegisteredUserController::class, 'store']
-    );
 });
 
 Route::get(
@@ -50,6 +106,11 @@ Route::middleware([
     'auth',
     'verified',
 ])->group(function () {
+    Route::get('/staff-registration', [StaffRegistrationController::class, 'manage'])
+        ->name('staff-registration.manage');
+    Route::get('/staff-registration/qr', [StaffRegistrationController::class, 'qr'])
+        ->name('staff-registration.qr');
+
     Route::get(
         '/categories/archived',
         [CategoryController::class, 'archived']
@@ -100,10 +161,14 @@ Route::middleware([
 
     Route::get('/borrowings', [BorrowingController::class, 'index'])
         ->name('borrowings.index');
+    Route::get('/borrowings/live/table', [BorrowingController::class, 'liveTable'])
+        ->name('borrowings.live-table');
     Route::get('/borrowings/create', [BorrowingController::class, 'create'])
         ->name('borrowings.create');
     Route::post('/borrowings', [BorrowingController::class, 'store'])
         ->name('borrowings.store');
+    Route::get('/borrowings/{borrowing}/live', [BorrowingController::class, 'liveShow'])
+        ->whereNumber('borrowing')->name('borrowings.live-show');
     Route::get('/borrowings/{borrowing}', [BorrowingController::class, 'show'])
         ->whereNumber('borrowing')->name('borrowings.show');
     Route::patch('/borrowings/{borrowing}/approve', [BorrowingController::class, 'approve'])

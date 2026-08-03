@@ -58,6 +58,7 @@ class RolePermissionSeeder extends Seeder
             'view reservation calendar',
             'reschedule borrowings',
             'export reservation calendar',
+            'use scanner',
 
             // Maintenance
             'view maintenance',
@@ -182,6 +183,7 @@ class RolePermissionSeeder extends Seeder
             'view reservation calendar',
             'reschedule borrowings',
             'export reservation calendar',
+            'use scanner',
 
             'view maintenance',
             'create maintenance',

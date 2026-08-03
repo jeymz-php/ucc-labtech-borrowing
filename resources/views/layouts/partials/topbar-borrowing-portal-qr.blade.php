@@ -80,11 +80,11 @@
                                 id="borrowing-qr-modal-title"
                                 class="text-lg font-bold text-gray-900"
                             >
-                                UCC LabTech Borrowing QR
+                                Guest Borrower QR
                             </h2>
 
                             <p class="mt-0.5 text-xs text-gray-500">
-                                Borrowing Management System
+                                Open the public guest borrowing form
                             </p>
                         </div>
                     </div>
@@ -116,8 +116,7 @@
 
                 <div class="px-6 pb-6 pt-4 text-center">
                     <p class="text-sm leading-6 text-gray-600">
-                        Scan this code on a phone or another device to open the
-                        Borrowing Request page.
+                        Scan this code on a phone or another device to open the Guest Borrower request page. No borrower account is required.
                     </p>
 
                     <div
@@ -129,15 +128,15 @@
                             ->size(260)
                             ->margin(1)
                             ->errorCorrection('H')
-                            ->generate(route('borrow.access')) !!}
+                            ->generate(route('guest-borrowings.create')) !!}
                     </div>
 
                     <div
                         class="mt-4 overflow-hidden rounded-xl bg-gray-50
                                px-4 py-3 text-xs text-gray-500"
                     >
-                        <p class="truncate" title="{{ route('borrow.access') }}">
-                            {{ route('borrow.access') }}
+                        <p class="truncate" title="{{ route('guest-borrowings.create') }}">
+                            {{ route('guest-borrowings.create') }}
                         </p>
                     </div>
 
@@ -146,14 +145,15 @@
                                px-4 py-3 text-left text-xs leading-5 text-green-800"
                     >
                         <p>
-                            <strong>Existing account:</strong> sign in using your
-                            registered email and password.
+                            <strong>Guest borrower:</strong> select Student, Professor,
+                            or Faculty / Staff, provide university details, choose
+                            equipment, and submit the request.
                         </p>
 
                         <p class="mt-1">
-                            <strong>New user:</strong> create an account, retrieve
-                            the temporary password from email, and sign in. The
-                            system will continue to the Borrowing Request page.
+                            <strong>After submission:</strong> the system generates a
+                            unique borrowing QR code for LabTech approval, release,
+                            and return processing.
                         </p>
                     </div>
 
@@ -180,7 +180,7 @@
                             />
                         </svg>
 
-                        Download QR Code
+                        Download Guest Portal QR
                     </a>
                 </div>
             </div>

@@ -208,20 +208,58 @@
 
         <div class="mt-5 border-t border-gray-200 pt-4 text-center">
             <p class="text-xs text-gray-600 sm:text-sm">
-                Do not have an account?
-
-                <a
-                    href="{{ route('register') }}"
-                    class="font-semibold text-green-700 hover:text-green-800"
-                >
-                    Create an account
-                </a>
+                Borrowing equipment as a student, professor, or faculty/staff member?
             </p>
+
+            <a
+                href="{{ route('guest-borrowings.create') }}"
+                class="mt-3 flex w-full items-center justify-center gap-2 rounded-xl
+                       border border-green-700 px-4 py-2.5 text-sm font-semibold
+                       text-green-700 transition hover:bg-green-50"
+            >
+                Continue as Guest Borrower
+            </a>
 
             <p class="mt-2 text-[10px] leading-4 text-gray-500 sm:text-xs">
-                Registration is available for students, professors,
-                and faculty members only.
+                No borrower account or password is required. Staff administrators must sign in above.
             </p>
         </div>
+
+        <div class="mt-4 text-center">
+            <button
+                type="button"
+                x-on:click="$dispatch('open-modal', 'user-guide')"
+                class="inline-flex items-center justify-center gap-2 rounded-xl
+                       border border-green-200 bg-green-50 px-4 py-2.5
+                       text-sm font-semibold text-green-800 transition
+                       hover:border-green-300 hover:bg-green-100
+                       focus:outline-none focus:ring-2 focus:ring-green-600
+                       focus:ring-offset-2"
+            >
+                <svg
+                    class="h-5 w-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M12 6.253v13M12 6.253C10.832 5.477
+                           9.246 5 7.5 5S4.168 5.477 3 6.253v13
+                           C4.168 18.477 5.754 18 7.5 18s3.332.477
+                           4.5 1.253m0-13C13.168 5.477 14.754 5
+                           16.5 5s3.332.477 4.5 1.253v13
+                           C19.832 18.477 18.246 18 16.5 18
+                           s-3.332.477-4.5 1.253"
+                    />
+                </svg>
+
+                View User Guide
+            </button>
+        </div>
+
     </div>
 </x-guest-layout>

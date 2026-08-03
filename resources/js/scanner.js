@@ -1,6 +1,13 @@
 import './bootstrap';
 import axios from 'axios';
 
+import {
+    Html5QrcodeScanner,
+    Html5QrcodeScanType,
+} from 'html5-qrcode';
+
+import './scanner';
+
 let mode = 'release';
 let borrowing = null;
 let scanLocked = false;
@@ -1036,13 +1043,13 @@ document.addEventListener(
     },
 );
 
-if (
-    typeof Html5QrcodeScanner
-        !== 'undefined'
-    && document.getElementById('reader')
-) {
-    const scanner =
-        new Html5QrcodeScanner(
+const readerElement = document.getElementById('reader');
+
+if (readerElement) {
+    resetSession();
+
+    try {
+        const scanner = new Html5QrcodeScanner(
             'reader',
             {
                 fps: 10,
@@ -1052,29 +1059,32 @@ if (
                     height: 250,
                 },
 
-                rememberLastUsedCamera:
-                    true,
+                rememberLastUsedCamera: true,
 
                 supportedScanTypes: [
-                    Html5QrcodeScanType
-                        .SCAN_TYPE_CAMERA,
-
-                    Html5QrcodeScanType
-                        .SCAN_TYPE_FILE,
+                    Html5QrcodeScanType.SCAN_TYPE_CAMERA,
+                    Html5QrcodeScanType.SCAN_TYPE_FILE,
                 ],
+
+                showTorchButtonIfSupported: true,
+                showZoomSliderIfSupported: true,
             },
             false,
         );
 
-    scanner.render(
-        onScanSuccess,
-        onScanFailure,
-    );
-} else {
-    showMessage(
-        'QR scanner library failed to load.',
-        'error',
-    );
-}
+        scanner.render(
+            onScanSuccess,
+            onScanFailure,
+        );
+    } catch (error) {
+        console.error(
+            'Unable to initialize QR scanner:',
+            error,
+        );
 
-resetSession();
+        showMessage(
+            'Unable to initialize the QR scanner. Refresh the page and check the browser console.',
+            'error',
+        );
+    }
+}

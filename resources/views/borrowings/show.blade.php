@@ -30,7 +30,7 @@
         </div>
     </x-slot>
 
-    <div class="space-y-6">
+    <div id="borrowingShowLive" data-status="{{ $borrowing->status }}" data-updated-at="{{ $borrowing->updated_at?->toIso8601String() }}" class="space-y-6">
         @if (session('success'))
             <div class="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
                 {{ session('success') }}
@@ -53,7 +53,7 @@
                         </h2>
 
                         <p class="mt-1 text-sm text-gray-500">
-                            Submitted by {{ $borrowing->user?->full_name }}
+                            Submitted by {{ $borrowing->borrower_name }}
                         </p>
                     </div>
 
@@ -79,11 +79,27 @@
                         </dt>
 
                         <dd class="mt-1 text-sm text-gray-800">
-                            {{ $borrowing->user?->full_name }}
-                            ·
-                            {{ $borrowing->user?->id_number }}
+                            {{ $borrowing->borrower_name }}
+                            @if ($borrowing->borrower_identifier)
+                                · {{ $borrowing->borrower_identifier }}
+                            @endif
+                            <div class="mt-1 text-xs text-gray-500">
+                                {{ $borrowing->borrower_role_label }} · {{ $borrowing->borrower_email }}
+                            </div>
                         </dd>
                     </div>
+
+                    @if ($borrowing->guestBorrower?->academic_details)
+                        <div>
+                            <dt class="text-xs font-semibold uppercase text-gray-400">
+                                Academic / Department Details
+                            </dt>
+
+                            <dd class="mt-1 text-sm text-gray-800">
+                                {{ $borrowing->guestBorrower->academic_details }}
+                            </dd>
+                        </div>
+                    @endif
 
                     <div>
                         <dt class="text-xs font-semibold uppercase text-gray-400">
@@ -175,13 +191,16 @@
                         </p>
 
                         <p class="mt-2 text-sm font-medium text-gray-700">
-                            {{ $borrowing->user?->full_name }}
+                            {{ $borrowing->borrower_name }}
                         </p>
 
-                        @if ($borrowing->user?->id_number)
+                        @if ($borrowing->borrower_identifier)
                             <p class="mt-1 text-xs text-gray-500">
-                                ID Number: {{ $borrowing->user->id_number }}
+                                ID Number: {{ $borrowing->borrower_identifier }}
                             </p>
+                        @endif
+                        @if ($borrowing->is_guest)
+                            <p class="mt-1 text-xs font-semibold text-cyan-700">Guest Borrower</p>
                         @endif
 
                         <div class="mt-5 w-full rounded-xl bg-blue-50 px-4 py-3 text-left text-sm text-blue-800">
@@ -591,4 +610,25 @@
             @endif
         </section>
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const root = document.getElementById('borrowingShowLive');
+            if (!root) return;
+            const endpoint = @json(route('borrowings.live-show', $borrowing));
+            window.setInterval(async () => {
+                if (document.hidden) return;
+                try {
+                    const response = await fetch(endpoint, { headers: { 'Accept': 'application/json' }, cache: 'no-store' });
+                    if (!response.ok) return;
+                    const data = await response.json();
+                    if (data.updated_at && data.updated_at !== root.dataset.updatedAt) {
+                        window.location.reload();
+                    }
+                } catch (error) {
+                    console.debug('Live borrowing detail update unavailable.', error);
+                }
+            }, 4000);
+        });
+    </script>
 </x-app-layout>

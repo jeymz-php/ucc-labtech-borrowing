@@ -38,11 +38,30 @@ class ReportController extends Controller
             ->join('borrowings', 'borrowings.id', '=', 'borrowing_items.borrowing_id')
             ->whereBetween('borrowings.created_at', [$from, $to])
             ->groupBy('items.id', 'items.name')->orderByDesc('borrow_count')->limit(10)->get();
-        $topBorrowers = User::query()->select('users.id','users.first_name','users.middle_name','users.last_name','users.suffix', DB::raw('COUNT(borrowings.id) as borrow_count'))
-            ->join('borrowings', 'borrowings.user_id', '=', 'users.id')
-            ->whereBetween('borrowings.created_at', [$from, $to])
-            ->groupBy('users.id','users.first_name','users.middle_name','users.last_name','users.suffix')->orderByDesc('borrow_count')->limit(10)->get();
-        $recent = Borrowing::with('user')->whereBetween('created_at', [$from, $to])->latest()->limit(10)->get();
+        $topBorrowers = Borrowing::query()
+            ->with(['user.roles', 'guestBorrower'])
+            ->whereBetween('created_at', [$from, $to])
+            ->get()
+            ->groupBy(fn (Borrowing $borrowing) => $borrowing->is_guest
+                ? 'guest-'.mb_strtolower((string) $borrowing->borrower_email)
+                : 'user-'.$borrowing->user_id)
+            ->map(function ($group) {
+                $first = $group->first();
+
+                return (object) [
+                    'full_name' => $first->borrower_name,
+                    'borrow_count' => $group->count(),
+                ];
+            })
+            ->sortByDesc('borrow_count')
+            ->take(10)
+            ->values();
+
+        $recent = Borrowing::with(['user.roles','guestBorrower'])
+            ->whereBetween('created_at', [$from, $to])
+            ->latest()
+            ->limit(10)
+            ->get();
 
         return view('reports.index', compact('from','to','summary','statusBreakdown','topItems','topBorrowers','recent'));
     }
@@ -52,7 +71,7 @@ class ReportController extends Controller
         abort_unless($request->user()->can('export reports'), 403);
         $from = $request->date('from')?->startOfDay() ?? now()->startOfMonth();
         $to = $request->date('to')?->endOfDay() ?? now()->endOfMonth();
-        $rows = Borrowing::with(['user','items.itemUnit.item'])->whereBetween('created_at', [$from, $to])->oldest()->get();
+        $rows = Borrowing::with(['user.roles','guestBorrower','items.itemUnit.item'])->whereBetween('created_at', [$from, $to])->oldest()->get();
 
         return response()->streamDownload(function () use ($rows) {
             $out = fopen('php://output', 'w');
@@ -60,8 +79,8 @@ class ReportController extends Controller
             foreach ($rows as $borrowing) {
                 fputcsv($out, [
                     $borrowing->borrowing_code,
-                    $borrowing->user?->full_name,
-                    $borrowing->user?->id_number,
+                    $borrowing->borrower_name,
+                    $borrowing->borrower_identifier,
                     $borrowing->purpose,
                     $borrowing->status,
                     optional($borrowing->borrow_at)->format('Y-m-d H:i'),
@@ -79,7 +98,7 @@ class ReportController extends Controller
         abort_unless($request->user()->can('export reports'), 403);
         $from = $request->date('from')?->startOfDay() ?? now()->startOfMonth();
         $to = $request->date('to')?->endOfDay() ?? now()->endOfMonth();
-        $rows = Borrowing::with(['user','items.itemUnit.item'])
+        $rows = Borrowing::with(['user.roles','guestBorrower','items.itemUnit.item'])
             ->whereBetween('created_at', [$from, $to])->oldest()->get();
 
         $summary = [

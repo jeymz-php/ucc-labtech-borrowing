@@ -10,7 +10,8 @@ class BarcodeScannerService
     public function borrowing(string $code): ?Borrowing
     {
         return Borrowing::with([
-            'user',
+            'user.roles',
+            'guestBorrower',
             'items.itemUnit.item.category',
             'approver',
             'releaser',

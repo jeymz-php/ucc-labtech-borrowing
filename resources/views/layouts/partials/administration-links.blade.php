@@ -6,6 +6,21 @@
 </div>
 
 <div class="space-y-1">
+    @can('use scanner')
+        <a
+            href="{{ route('scanner.index') }}"
+            class="flex items-center gap-3 rounded-xl px-4 py-3
+                   text-sm font-medium transition
+                   {{ request()->routeIs('scanner.*')
+                        ? 'bg-white text-green-800 shadow-sm'
+                        : 'text-green-100 hover:bg-green-700' }}"
+        >
+            <svg class="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 7V5a1 1 0 011-1h2M17 4h2a1 1 0 011 1v2M20 17v2a1 1 0 01-1 1h-2M7 20H5a1 1 0 01-1-1v-2M8 8h3v3H8V8zm5 0h3v3h-3V8zM8 13h3v3H8v-3zm5 0h1v1h-1v-1zM15 13h1v3h-3v-1"/>
+            </svg>
+            Scanner
+        </a>
+    @endcan
     @can('view users')
         <a
             href="{{ route('users.index') }}"
@@ -25,6 +40,22 @@
             Users
         </a>
     @endcan
+
+    @if (auth()->user()->hasRole('super_admin'))
+        <a
+            href="{{ route('staff-registration.manage') }}"
+            class="flex items-center gap-3 rounded-xl px-4 py-3
+                   text-sm font-medium transition
+                   {{ request()->routeIs('staff-registration.*')
+                        ? 'bg-white text-green-800 shadow-sm'
+                        : 'text-green-100 hover:bg-green-700' }}"
+        >
+            <svg class="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2m7-10a4 4 0 100-8 4 4 0 000 8zm8-3v6m3-3h-6"/>
+            </svg>
+            Staff Registration
+        </a>
+    @endif
 
     @can('view maintenance')
         <a

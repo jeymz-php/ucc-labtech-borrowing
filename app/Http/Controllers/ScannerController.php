@@ -56,21 +56,11 @@ class ScannerController extends Controller
 
                 'user' => [
                     'id' => $borrowing->user?->id,
-
-                    'id_number' => $borrowing
-                        ->user
-                        ?->id_number,
-
-                    'name' => trim(
-                        collect([
-                            $borrowing->user?->first_name,
-                            $borrowing->user?->middle_name,
-                            $borrowing->user?->last_name,
-                            $borrowing->user?->suffix,
-                        ])
-                            ->filter()
-                            ->implode(' ')
-                    ),
+                    'id_number' => $borrowing->borrower_identifier,
+                    'name' => $borrowing->borrower_name,
+                    'email' => $borrowing->borrower_email,
+                    'role' => $borrowing->borrower_role_label,
+                    'is_guest' => $borrowing->is_guest,
                 ],
 
                 'items' => $borrowing

@@ -30,7 +30,10 @@
     ])
 </head>
 
-<body class="h-dvh overflow-hidden bg-gray-50 font-sans text-gray-900 antialiased">
+<body
+    class="h-dvh overflow-hidden bg-gray-50 font-sans text-gray-900 antialiased"
+    x-data
+>
     <main class="h-dvh overflow-hidden">
         <div class="grid h-full lg:grid-cols-[42%_58%]">
             {{-- Desktop branding --}}
@@ -168,5 +171,7 @@
             </section>
         </div>
     </main>
+
+    <x-user-guide-modal />
 </body>
 </html>

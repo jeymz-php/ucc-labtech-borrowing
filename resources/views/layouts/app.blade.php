@@ -186,6 +186,20 @@
                         </a>
                     @endif
 
+                    <a
+                        href="{{ route('guest-borrowings.create') }}"
+                        target="_blank"
+                        rel="noopener"
+                        class="flex items-center gap-3 rounded-xl px-4 py-3
+                               text-sm font-medium text-green-100 transition
+                               hover:bg-green-700 hover:text-white"
+                    >
+                        <svg class="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 0h2v2h-2v-2zm4 0h2v4h-2v-4zm-4 4h4v2h-4v-2z"/>
+                        </svg>
+                        <span>Guest Borrower</span>
+                    </a>
+
                     @can('view reservation calendar')
                         <a
                             href="{{ route('calendar.index') }}"
@@ -208,6 +222,50 @@
                 </div>
 
                 @include('layouts.partials.administration-links')
+
+                <div
+                    class="mb-3 mt-8 px-3 text-xs font-semibold uppercase
+                           tracking-wider text-green-300"
+                >
+                    Help & Support
+                </div>
+
+                <div class="space-y-1">
+                    <button
+                        type="button"
+                        x-on:click="
+                            $dispatch('open-modal', 'user-guide');
+                            sidebarOpen = false;
+                        "
+                        class="flex w-full items-center gap-3 rounded-xl px-4 py-3
+                               text-left text-sm font-medium text-green-100
+                               transition hover:bg-green-700 hover:text-white"
+                    >
+                        <svg
+                            class="h-5 w-5 shrink-0"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            aria-hidden="true"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M12 6.253v13M12 6.253C10.832 5.477
+                                   9.246 5 7.5 5S4.168 5.477 3 6.253v13
+                                   C4.168 18.477 5.754 18 7.5 18s3.332.477
+                                   4.5 1.253m0-13C13.168 5.477 14.754 5
+                                   16.5 5s3.332.477 4.5 1.253v13
+                                   C19.832 18.477 18.246 18 16.5 18
+                                   s-3.332.477-4.5 1.253"
+                            />
+                        </svg>
+
+                        <span>User Guide</span>
+                    </button>
+                </div>
+
 
             </nav>
 
@@ -511,5 +569,7 @@
             </main>
         </div>
     </div>
+
+    <x-user-guide-modal />
 </body>
 </html>

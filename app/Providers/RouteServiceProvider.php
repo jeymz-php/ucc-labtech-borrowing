@@ -35,5 +35,35 @@ class RouteServiceProvider extends ServiceProvider
             return Limit::perMinute(60)
                 ->by($request->user()?->id ?: $request->ip());
         });
+
+        /*
+        |--------------------------------------------------------------------------
+        | Public Guest Borrowing Rate Limits
+        |--------------------------------------------------------------------------
+        |
+        | Keep ordinary page requests, live polling requests, and form submissions
+        | in separate buckets. This prevents the automatic inventory/status polling
+        | from consuming the allowance used to open the Guest Borrower page.
+        |
+        */
+        RateLimiter::for('guest-pages', function (Request $request) {
+            return Limit::perMinute(120)
+                ->by('guest-pages|'.$request->ip());
+        });
+
+        RateLimiter::for('guest-live', function (Request $request) {
+            return Limit::perMinute(180)
+                ->by('guest-live|'.$request->ip());
+        });
+
+        RateLimiter::for('guest-submit', function (Request $request) {
+            return Limit::perMinute(10)
+                ->by('guest-submit|'.$request->ip());
+        });
+
+        RateLimiter::for('staff-registration', function (Request $request) {
+            return Limit::perMinute(10)
+                ->by('staff-registration|'.$request->ip());
+        });
     }
 }

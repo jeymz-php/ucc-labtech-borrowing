@@ -43,7 +43,7 @@ class ReservationCalendarController extends Controller
 
         $borrowings = Borrowing::query()
             ->visibleTo($request->user())
-            ->with(['user','items.itemUnit.item.category'])
+            ->with(['user.roles','guestBorrower','items.itemUnit.item.category'])
             ->where('borrow_at', '<', $data['end'])
             ->where('expected_return_at', '>', $data['start'])
             ->when($request->filled('status'), fn ($q) => $q->where('status', $data['status']))
@@ -56,11 +56,11 @@ class ReservationCalendarController extends Controller
             return [
                 'id' => $borrowing->id,
                 'code' => $borrowing->borrowing_code,
-                'title' => $borrowing->borrowing_code.' · '.$borrowing->user?->full_name,
+                'title' => $borrowing->borrowing_code.' · '.$borrowing->borrower_name,
                 'start' => $borrowing->borrow_at?->toIso8601String(),
                 'end' => $borrowing->expected_return_at?->toIso8601String(),
                 'status' => $borrowing->status,
-                'borrower' => $borrowing->user?->full_name,
+                'borrower' => $borrowing->borrower_name,
                 'purpose' => $borrowing->purpose,
                 'units' => $borrowing->items->map(fn ($line) => [
                     'asset_number' => $line->itemUnit?->asset_number,
@@ -162,7 +162,7 @@ class ReservationCalendarController extends Controller
 
         $borrowings = Borrowing::query()
             ->visibleTo($request->user())
-            ->with(['user','items.itemUnit.item'])
+            ->with(['user.roles','guestBorrower','items.itemUnit.item'])
             ->where('borrow_at', '<', $data['end'])
             ->where('expected_return_at', '>', $data['start'])
             ->when($request->filled('status'), fn ($q) => $q->where('status', $data['status']))

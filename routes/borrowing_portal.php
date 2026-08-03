@@ -5,11 +5,10 @@ use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
-| Public Borrowing QR entry point
+| Public Guest Borrower QR entry point
 |--------------------------------------------------------------------------
 |
-| This URL is encoded in the topbar QR code. Guests are redirected to the
-| login page while the intended destination is retained in the session.
+| This URL is encoded in the topbar QR code. The short /borrow-now URL redirects directly to the public Guest Borrower form.
 |
 */
 Route::get(
