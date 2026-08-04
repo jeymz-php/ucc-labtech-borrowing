@@ -8,6 +8,7 @@ use App\Models\BorrowingItem;
 use App\Models\ItemUnit;
 use App\Models\MaintenanceRecord;
 use App\Notifications\BorrowingStatusNotification;
+use App\Support\CampusAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -35,18 +36,14 @@ class BorrowingController extends Controller
         return response()->json([
             'html' => view('borrowings.partials.table', compact('borrowings'))->render(),
             'signature' => $this->liveSignature($request),
-            'pending_count' => Borrowing::query()->where('status', 'pending')->count(),
+            'pending_count' => Borrowing::query()->visibleTo($request->user())->where('status', 'pending')->count(),
             'generated_at' => now()->toIso8601String(),
         ]);
     }
 
     public function liveShow(Request $request, Borrowing $borrowing): JsonResponse
     {
-        abort_unless(
-            $request->user()->can('view all borrowings')
-                || $borrowing->user_id === $request->user()->id,
-            403
-        );
+        $this->ensureBorrowingVisible($request, $borrowing);
 
         return response()->json([
             'status' => $borrowing->status,
@@ -59,21 +56,29 @@ class BorrowingController extends Controller
 
     public function create(): View
     {
-        abort_unless(auth()->user()->can('create borrowing requests'), 403);
+        $user = auth()->user();
+
+        abort_unless($user->can('create borrowing requests'), 403);
+
+        $campus = CampusAccess::userCampus($user);
 
         $units = ItemUnit::query()
+            ->where('campus', $campus)
             ->borrowable()
             ->with(['item.category'])
             ->orderBy('asset_number')
             ->get();
 
-        return view('borrowings.create', compact('units'));
+        return view('borrowings.create', compact('units', 'campus'));
     }
 
     public function store(StoreBorrowingRequest $request): RedirectResponse
     {
         $borrowing = DB::transaction(function () use ($request) {
+            $campus = CampusAccess::userCampus($request->user());
+
             $units = ItemUnit::query()
+                ->where('campus', $campus)
                 ->whereIn('id', $request->validated('item_unit_ids'))
                 ->lockForUpdate()
                 ->get();
@@ -90,6 +95,7 @@ class BorrowingController extends Controller
             $hasConflict = DB::table('borrowing_items')
                 ->join('borrowings', 'borrowings.id', '=', 'borrowing_items.borrowing_id')
                 ->whereIn('borrowing_items.item_unit_id', $units->pluck('id'))
+                ->where('borrowings.campus', $campus)
                 ->whereIn('borrowings.status', ['pending', 'approved', 'released', 'overdue'])
                 ->where('borrowings.borrow_at', '<', $request->validated('expected_return_at'))
                 ->where('borrowings.expected_return_at', '>', $request->validated('borrow_at'))
@@ -105,6 +111,7 @@ class BorrowingController extends Controller
                 'borrowing_code' => $this->nextCode(),
                 'user_id' => $request->user()->id,
                 'source' => 'account',
+                'campus' => $campus,
                 'purpose' => $request->validated('purpose'),
                 'borrow_at' => $request->validated('borrow_at'),
                 'expected_return_at' => $request->validated('expected_return_at'),
@@ -136,11 +143,7 @@ class BorrowingController extends Controller
 
     public function show(Request $request, Borrowing $borrowing): View
     {
-        abort_unless(
-            $request->user()->can('view all borrowings')
-                || $borrowing->user_id === $request->user()->id,
-            403
-        );
+        $this->ensureBorrowingVisible($request, $borrowing);
 
         $borrowing->load([
             'user.roles',
@@ -157,6 +160,7 @@ class BorrowingController extends Controller
     public function approve(Request $request, Borrowing $borrowing): RedirectResponse
     {
         abort_unless($request->user()->can('approve borrowings'), 403);
+        $this->ensureBorrowingCampus($request, $borrowing);
         abort_unless($borrowing->status === 'pending', 422);
 
         $borrowing->update([
@@ -178,6 +182,7 @@ class BorrowingController extends Controller
     public function reject(Request $request, Borrowing $borrowing): RedirectResponse
     {
         abort_unless($request->user()->can('reject borrowings'), 403);
+        $this->ensureBorrowingCampus($request, $borrowing);
 
         $data = $request->validate([
             'rejection_reason' => ['required', 'string', 'max:1500'],
@@ -216,6 +221,7 @@ class BorrowingController extends Controller
     public function release(Request $request, Borrowing $borrowing): RedirectResponse
     {
         abort_unless($request->user()->can('release borrowings'), 403);
+        $this->ensureBorrowingCampus($request, $borrowing);
         abort_unless($borrowing->status === 'approved', 422);
 
         DB::transaction(function () use ($borrowing, $request) {
@@ -253,6 +259,7 @@ class BorrowingController extends Controller
     public function receive(Request $request, Borrowing $borrowing): RedirectResponse
     {
         abort_unless($request->user()->can('receive returns'), 403);
+        $this->ensureBorrowingCampus($request, $borrowing);
         abort_unless(in_array($borrowing->status, ['released', 'overdue'], true), 422);
 
         $data = $request->validate([
@@ -329,6 +336,7 @@ class BorrowingController extends Controller
     public function cancel(Request $request, Borrowing $borrowing): RedirectResponse
     {
         abort_unless($borrowing->canBeCancelledBy($request->user()), 403);
+        $this->ensureBorrowingCampus($request, $borrowing);
 
         DB::transaction(function () use ($borrowing, $request) {
             $borrowing->load('items.itemUnit.item');
@@ -354,6 +362,7 @@ class BorrowingController extends Controller
     public function extend(Request $request, Borrowing $borrowing): RedirectResponse
     {
         abort_unless($request->user()->can('extend borrowing due dates'), 403);
+        $this->ensureBorrowingCampus($request, $borrowing);
         abort_unless(in_array($borrowing->status, ['approved', 'released', 'overdue'], true), 422);
 
         $data = $request->validate([
@@ -381,11 +390,7 @@ class BorrowingController extends Controller
 
     public function receipt(Request $request, Borrowing $borrowing): View
     {
-        abort_unless(
-            $request->user()->can('view all borrowings')
-                || $borrowing->user_id === $request->user()->id,
-            403
-        );
+        $this->ensureBorrowingVisible($request, $borrowing);
 
         $borrowing->load([
             'user.roles',
@@ -446,6 +451,21 @@ class BorrowingController extends Controller
         $latest = (clone $query)->max('updated_at');
 
         return sha1($count.'|'.$latest.'|'.$request->integer('page', 1));
+    }
+
+    private function ensureBorrowingVisible(Request $request, Borrowing $borrowing): void
+    {
+        if ($request->user()->can('view all borrowings')) {
+            $this->ensureBorrowingCampus($request, $borrowing);
+            return;
+        }
+
+        abort_unless($borrowing->user_id === $request->user()->id, 403);
+    }
+
+    private function ensureBorrowingCampus(Request $request, Borrowing $borrowing): void
+    {
+        CampusAccess::ensureCanAccess($request->user(), $borrowing->campus);
     }
 
     private function nextCode(): string

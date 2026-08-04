@@ -18,6 +18,7 @@ class Borrowing extends Model
         'guest_borrower_id',
         'public_token',
         'source',
+        'campus',
         'purpose',
         'borrow_at',
         'expected_return_at',
@@ -88,9 +89,13 @@ class Borrowing extends Model
 
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {
-        return $user->can('view all borrowings')
+        if (! $user->can('view all borrowings')) {
+            return $query->where('user_id', $user->id);
+        }
+
+        return $user->hasRole('super_admin')
             ? $query
-            : $query->where('user_id', $user->id);
+            : $query->where('campus', $user->campus);
     }
 
     public function canBeCancelledBy(User $user): bool
@@ -127,6 +132,14 @@ class Borrowing extends Model
     {
         return $this->guestBorrower?->email
             ?? $this->user?->email;
+    }
+
+
+    public function getBorrowerCampusAttribute(): ?string
+    {
+        return $this->campus
+            ?? $this->guestBorrower?->campus
+            ?? $this->user?->campus;
     }
 
     public function getBorrowerRoleLabelAttribute(): ?string

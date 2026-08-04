@@ -6,7 +6,7 @@
             </h1>
 
             <p class="mt-1 text-sm text-gray-500">
-                Choose available physical units and provide the borrowing schedule.
+                Choose available physical units from <strong>{{ $campus }}</strong> and provide the borrowing schedule.
             </p>
         </div>
     </x-slot>
@@ -72,10 +72,12 @@
                         type="datetime-local"
                         name="borrow_at"
                         value="{{ old('borrow_at') }}"
+                        min="{{ now()->format('Y-m-d\TH:i') }}"
                         required
                         class="mt-2 w-full rounded-xl border-gray-300
                                focus:border-green-600 focus:ring-green-600"
                     >
+                    <p class="mt-1.5 text-xs text-gray-500">The borrowing time cannot be earlier than the current time.</p>
                 </div>
 
                 <div>
@@ -229,6 +231,7 @@
                                     $unit->item->display_name,
                                     $unit->asset_number,
                                     $unit->condition,
+                                    $unit->campus,
                                     $location,
                                 ])
                             )
@@ -279,7 +282,7 @@
                             <span
                                 class="mt-1 block text-xs text-gray-400"
                             >
-                                {{ $location ?: 'Location not specified' }}
+                                {{ $unit->campus }} · {{ $location ?: 'Location not specified' }}
                             </span>
                         </span>
 
@@ -467,4 +470,27 @@
             filterEquipment();
         });
     </script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const borrowInput = document.getElementById('borrow_at');
+            const returnInput = document.getElementById('expected_return_at');
+            const pad = value => String(value).padStart(2, '0');
+            const localValue = date => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+
+            const updateMinimums = () => {
+                const now = new Date();
+                now.setSeconds(0, 0);
+                const minimum = localValue(now);
+
+                if (borrowInput) borrowInput.min = minimum;
+                if (returnInput) returnInput.min = borrowInput?.value && borrowInput.value > minimum ? borrowInput.value : minimum;
+            };
+
+            borrowInput?.addEventListener('change', updateMinimums);
+            updateMinimums();
+            window.setInterval(updateMinimums, 60000);
+        });
+    </script>
+
 </x-app-layout>

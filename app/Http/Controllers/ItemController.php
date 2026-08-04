@@ -6,7 +6,9 @@ use App\Http\Requests\StoreItemRequest;
 use App\Http\Requests\UpdateItemRequest;
 use App\Models\Category;
 use App\Models\Item;
+use App\Models\ItemUnit;
 use App\Services\InventoryService;
+use App\Support\CampusAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -32,9 +34,24 @@ class ItemController extends Controller
         $categoryId = $request->integer('category');
         $status = $request->input('status');
         $stock = $request->input('stock');
+        $campus = CampusAccess::canViewAllCampuses($request->user())
+            ? null
+            : CampusAccess::userCampus($request->user());
 
         $items = Item::query()
             ->with('category')
+            ->withCount([
+                'units as campus_quantity_total' => fn ($query) => $query
+                    ->when($campus, fn ($unitQuery) => $unitQuery->where('campus', $campus))
+                    ->where('availability_status', '!=', 'archived'),
+                'units as campus_quantity_available' => fn ($query) => $query
+                    ->when($campus, fn ($unitQuery) => $unitQuery->where('campus', $campus))
+                    ->where('availability_status', 'available'),
+            ])
+            ->when($campus, fn ($query) => $query->whereHas(
+                'units',
+                fn ($unitQuery) => $unitQuery->where('campus', $campus)
+            ))
             ->search($search)
             ->when($categoryId, fn ($query) => $query->where('category_id', $categoryId))
             ->when(
@@ -42,13 +59,13 @@ class ItemController extends Controller
                 fn ($query) => $query->where('status', $status)
             )
             ->when($stock === 'low', function ($query) {
-                $query->whereColumn('quantity_available', '<=', 'minimum_stock');
+                $query->havingRaw('campus_quantity_available <= minimum_stock');
             })
             ->when($stock === 'available', function ($query) {
-                $query->where('quantity_available', '>', 0);
+                $query->having('campus_quantity_available', '>', 0);
             })
             ->when($stock === 'out', function ($query) {
-                $query->where('quantity_available', 0);
+                $query->having('campus_quantity_available', '=', 0);
             })
             ->latest()
             ->paginate(12)
@@ -59,11 +76,34 @@ class ItemController extends Controller
             ->orderBy('name')
             ->get(['id', 'name']);
 
+        $campusItems = Item::query()
+            ->when($campus, fn ($query) => $query->whereHas(
+                'units',
+                fn ($unitQuery) => $unitQuery->where('campus', $campus)
+            ));
+
+        $lowStockCount = Item::query()
+            ->when($campus, fn ($query) => $query->whereHas(
+                'units',
+                fn ($unitQuery) => $unitQuery->where('campus', $campus)
+            ))
+            ->withCount([
+                'units as campus_available_count' => fn ($query) => $query
+                    ->when($campus, fn ($unitQuery) => $unitQuery->where('campus', $campus))
+                    ->where('availability_status', 'available'),
+            ])
+            ->get()
+            ->filter(fn (Item $item) => $item->campus_available_count <= $item->minimum_stock)
+            ->count();
+
         $summary = [
-            'total' => Item::count(),
-            'active' => Item::where('status', 'active')->count(),
-            'available_units' => Item::sum('quantity_available'),
-            'low_stock' => Item::whereColumn('quantity_available', '<=', 'minimum_stock')->count(),
+            'total' => (clone $campusItems)->count(),
+            'active' => (clone $campusItems)->where('status', 'active')->count(),
+            'available_units' => ItemUnit::query()
+                ->when($campus, fn ($query) => $query->where('campus', $campus))
+                ->where('availability_status', 'available')
+                ->count(),
+            'low_stock' => $lowStockCount,
         ];
 
         return view('items.index', compact(
@@ -77,14 +117,19 @@ class ItemController extends Controller
         ));
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
         $categories = Category::query()
             ->where('status', 'active')
             ->orderBy('name')
             ->get();
 
-        return view('items.create', compact('categories'));
+        return view('items.create', [
+            'categories' => $categories,
+            'campuses' => CampusAccess::options(),
+            'selectedCampus' => CampusAccess::userCampus($request->user()),
+            'canSelectCampus' => CampusAccess::canViewAllCampuses($request->user()),
+        ]);
     }
 
     public function store(StoreItemRequest $request): RedirectResponse
@@ -113,6 +158,10 @@ class ItemController extends Controller
 
         for ($index = 0; $index < $unitCount; $index++) {
             $unitsData[] = [
+                'campus' => CampusAccess::campusForWrite(
+                    $request->user(),
+                    $validated['campus'] ?? null
+                ),
                 'condition' => $validated['initial_condition'],
                 'availability_status' => 'available',
                 'acquisition_date' => $validated['acquisition_date'] ?? null,
@@ -144,25 +193,46 @@ class ItemController extends Controller
             ->with('success', 'Item created successfully.');
     }
 
-    public function show(Item $item): View
+    public function show(Request $request, Item $item): View
     {
         $item->load(['category', 'creator', 'updater']);
 
+        $campus = CampusAccess::canViewAllCampuses($request->user())
+            ? ($request->filled('campus') && CampusAccess::isValid($request->input('campus'))
+                ? $request->input('campus')
+                : null)
+            : CampusAccess::userCampus($request->user());
+
+        $this->ensureItemVisible($request, $item);
+
         $units = $item->units()
+            ->when($campus, fn ($query) => $query->where('campus', $campus))
             ->latest()
             ->paginate(10)
             ->withQueryString();
 
         $unitSummary = $item->units()
+            ->when($campus, fn ($query) => $query->where('campus', $campus))
             ->selectRaw('availability_status, COUNT(*) as total')
             ->groupBy('availability_status')
             ->pluck('total', 'availability_status');
 
-        return view('items.show', compact('item', 'units', 'unitSummary'));
+        return view('items.show', [
+            'item' => $item,
+            'units' => $units,
+            'unitSummary' => $unitSummary,
+            'campus' => $campus,
+            'campuses' => CampusAccess::options(),
+            'canSelectCampus' => CampusAccess::canViewAllCampuses($request->user()),
+            'campusTotal' => $unitSummary->sum(),
+            'campusAvailable' => (int) ($unitSummary['available'] ?? 0),
+        ]);
     }
 
-    public function edit(Item $item): View
+    public function edit(Request $request, Item $item): View
     {
+        $this->ensureItemVisible($request, $item);
+
         $categories = Category::query()
             ->orderBy('name')
             ->get();
@@ -174,6 +244,8 @@ class ItemController extends Controller
         UpdateItemRequest $request,
         Item $item
     ): RedirectResponse {
+        $this->ensureItemVisible($request, $item);
+
         $validated = $request->validated();
         $oldImage = $item->image;
         $newImage = null;
@@ -225,6 +297,8 @@ class ItemController extends Controller
 
     public function toggleStatus(Request $request, Item $item): RedirectResponse
     {
+        $this->ensureItemVisible($request, $item);
+
         $item->update([
             'status' => $item->status === 'active' ? 'inactive' : 'active',
             'updated_by' => $request->user()->id,
@@ -235,37 +309,55 @@ class ItemController extends Controller
 
     public function destroy(Request $request, Item $item): RedirectResponse
     {
-        $hasUnavailableUnits = $item->units()
-            ->whereIn('availability_status', ['reserved', 'borrowed'])
-            ->exists();
+        $this->ensureItemVisible($request, $item);
 
-        if ($hasUnavailableUnits) {
+        $targetUnits = $item->units()
+            ->when(
+                ! CampusAccess::canViewAllCampuses($request->user()),
+                fn ($query) => $query->where(
+                    'campus',
+                    CampusAccess::userCampus($request->user())
+                )
+            );
+
+        if ((clone $targetUnits)->whereIn('availability_status', ['reserved', 'borrowed'])->exists()) {
             return back()->with(
                 'error',
-                'This item cannot be archived while one or more units are reserved or borrowed.'
+                'This item cannot be archived while one or more units in your campus are reserved or borrowed.'
             );
         }
 
-        DB::transaction(function () use ($request, $item) {
-            $item->units()->get()->each->delete();
+        DB::transaction(function () use ($request, $item, $targetUnits) {
+            $targetUnits->get()->each(function (ItemUnit $unit) use ($request) {
+                $unit->update([
+                    'availability_status' => 'archived',
+                    'updated_by' => $request->user()->id,
+                ]);
+                $unit->delete();
+            });
 
-            $item->update([
-                'status' => 'archived',
-                'quantity_total' => 0,
-                'quantity_available' => 0,
-                'updated_by' => $request->user()->id,
-            ]);
+            $item->refreshQuantities();
 
-            $item->delete();
+            if (! $item->units()->exists()) {
+                $item->update([
+                    'status' => 'archived',
+                    'updated_by' => $request->user()->id,
+                ]);
+                $item->delete();
+            }
         });
 
         return redirect()
             ->route('items.index')
-            ->with('success', 'Item archived successfully.');
+            ->with('success', CampusAccess::canViewAllCampuses($request->user())
+                ? 'Item archived successfully.'
+                : 'The item units assigned to your campus were archived successfully.');
     }
 
     public function archived(Request $request): View
     {
+        abort_unless(CampusAccess::canViewAllCampuses($request->user()), 403);
+
         $search = trim((string) $request->input('search'));
 
         $items = Item::onlyTrashed()
@@ -288,6 +380,8 @@ class ItemController extends Controller
 
     public function restore(Request $request, int $item): RedirectResponse
     {
+        abort_unless(CampusAccess::canViewAllCampuses($request->user()), 403);
+
         $item = Item::onlyTrashed()->findOrFail($item);
 
         DB::transaction(function () use ($request, $item) {
@@ -305,5 +399,20 @@ class ItemController extends Controller
         return redirect()
             ->route('items.archived')
             ->with('success', 'Item restored successfully and set to inactive.');
+    }
+
+    private function ensureItemVisible(Request $request, Item $item): void
+    {
+        if (CampusAccess::canViewAllCampuses($request->user())) {
+            return;
+        }
+
+        abort_unless(
+            $item->units()
+                ->where('campus', CampusAccess::userCampus($request->user()))
+                ->exists(),
+            403,
+            'This item has no equipment units assigned to your campus.'
+        );
     }
 }

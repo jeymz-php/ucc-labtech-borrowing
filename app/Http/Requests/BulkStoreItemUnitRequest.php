@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Support\CampusAccess;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -15,6 +16,7 @@ class BulkStoreItemUnitRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'campus' => [Rule::requiredIf(fn () => $this->user()?->hasRole('super_admin')), 'nullable', Rule::in(CampusAccess::options())],
             'quantity' => ['required','integer','min:1','max:250'],
             'acquisition_date' => ['nullable','date','before_or_equal:today'],
             'acquisition_cost' => ['nullable','numeric','min:0','max:9999999999.99'],

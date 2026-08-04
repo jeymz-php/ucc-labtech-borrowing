@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Support\CampusAccess;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -15,6 +16,7 @@ class StoreItemRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'campus' => [Rule::requiredIf(fn () => $this->user()?->hasRole('super_admin')), 'nullable', Rule::in(CampusAccess::options())],
             'category_id' => [
                 'required',
                 Rule::exists('categories', 'id')->where(function ($query) {

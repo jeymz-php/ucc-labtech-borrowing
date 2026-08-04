@@ -45,5 +45,6 @@
     </footer>
 
     <x-user-guide-modal />
+    <x-global-loader />
 </body>
 </html>

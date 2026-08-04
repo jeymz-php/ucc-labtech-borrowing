@@ -115,6 +115,16 @@
 
                     <div>
                         <dt class="text-xs font-semibold uppercase text-gray-400">
+                            Campus
+                        </dt>
+
+                        <dd class="mt-1 text-sm font-medium text-gray-800">
+                            {{ $borrowing->campus }}
+                        </dd>
+                    </div>
+
+                    <div>
+                        <dt class="text-xs font-semibold uppercase text-gray-400">
                             Borrow Schedule
                         </dt>
 

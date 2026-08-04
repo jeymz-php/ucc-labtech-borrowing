@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Models\Item;
 use App\Models\ItemUnit;
 use App\Notifications\BorrowingStatusNotification;
+use App\Support\CampusAccess;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -23,8 +24,15 @@ class ReservationCalendarController extends Controller
         abort_unless($request->user()->can('view reservation calendar'), 403);
 
         $categories = Category::query()->orderBy('name')->get(['id', 'name']);
-        $items = Item::query()->orderBy('name')->get(['id', 'name', 'category_id']);
-        $units = ItemUnit::query()->with('item:id,name')->orderBy('asset_number')->get(['id','item_id','asset_number','availability_status']);
+        $items = Item::query()
+            ->whereHas('units', fn ($query) => $query->visibleTo($request->user()))
+            ->orderBy('name')
+            ->get(['id', 'name', 'category_id']);
+        $units = ItemUnit::query()
+            ->visibleTo($request->user())
+            ->with('item:id,name')
+            ->orderBy('asset_number')
+            ->get(['id','item_id','campus','asset_number','availability_status']);
 
         return view('calendar.index', compact('categories', 'items', 'units'));
     }
@@ -60,6 +68,7 @@ class ReservationCalendarController extends Controller
                 'start' => $borrowing->borrow_at?->toIso8601String(),
                 'end' => $borrowing->expected_return_at?->toIso8601String(),
                 'status' => $borrowing->status,
+                'campus' => $borrowing->campus,
                 'borrower' => $borrowing->borrower_name,
                 'purpose' => $borrowing->purpose,
                 'units' => $borrowing->items->map(fn ($line) => [
@@ -77,7 +86,7 @@ class ReservationCalendarController extends Controller
         abort_unless($request->user()->can('view reservation calendar'), 403);
 
         $data = $request->validate([
-            'borrow_at' => ['required', 'date', 'after_or_equal:today'],
+            'borrow_at' => ['required', 'date', 'after_or_equal:'.now()->startOfMinute()->toDateTimeString()],
             'expected_return_at' => ['required', 'date', 'after:borrow_at'],
             'item_id' => ['nullable', 'integer', 'exists:items,id'],
         ]);
@@ -90,6 +99,7 @@ class ReservationCalendarController extends Controller
             ->pluck('borrowing_items.item_unit_id');
 
         $units = ItemUnit::query()
+            ->visibleTo($request->user())
             ->with('item:id,name')
             ->when($request->filled('item_id'), fn ($q) => $q->where('item_id', $data['item_id']))
             ->whereNotIn('id', $conflictedIds)
@@ -111,10 +121,11 @@ class ReservationCalendarController extends Controller
     public function reschedule(Request $request, Borrowing $borrowing): RedirectResponse
     {
         abort_unless($request->user()->can('reschedule borrowings'), 403);
+        CampusAccess::ensureCanAccess($request->user(), $borrowing->campus);
         abort_unless(in_array($borrowing->status, ['pending','approved'], true), 422);
 
         $data = $request->validate([
-            'borrow_at' => ['required', 'date', 'after_or_equal:today'],
+            'borrow_at' => ['required', 'date', 'after_or_equal:'.now()->startOfMinute()->toDateTimeString()],
             'expected_return_at' => ['required', 'date', 'after:borrow_at'],
             'reason' => ['required', 'string', 'max:1000'],
         ]);
@@ -125,6 +136,7 @@ class ReservationCalendarController extends Controller
         $conflict = DB::table('borrowing_items')
             ->join('borrowings', 'borrowings.id', '=', 'borrowing_items.borrowing_id')
             ->where('borrowings.id', '!=', $borrowing->id)
+            ->where('borrowings.campus', $borrowing->campus)
             ->whereIn('borrowing_items.item_unit_id', $unitIds)
             ->whereIn('borrowings.status', ['pending','approved','released','overdue'])
             ->where('borrowings.borrow_at', '<', $data['expected_return_at'])

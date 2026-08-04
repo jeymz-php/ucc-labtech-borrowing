@@ -33,6 +33,7 @@
                     <td class="px-5 py-4">
                         <div class="font-medium text-gray-900">{{ $borrowing->borrower_name }}</div>
                         <div class="text-xs text-gray-500">{{ $borrowing->borrower_identifier ?: $borrowing->borrower_email }}</div>
+                        <div class="mt-1 text-[11px] font-semibold text-green-700">{{ $borrowing->campus }}</div>
                     </td>
                     <td class="px-5 py-4 text-gray-600">
                         {{ $borrowing->borrow_at?->format('M d, Y h:i A') }}

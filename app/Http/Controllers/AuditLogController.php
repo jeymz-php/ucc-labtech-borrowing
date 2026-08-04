@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
 use App\Models\User;
+use App\Support\CampusAccess;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -16,8 +17,17 @@ class AuditLogController extends Controller
         abort_unless($request->user()->can('view activity logs'), 403);
 
         $logs = $this->query($request)->latest()->paginate(25)->withQueryString();
-        $modules = AuditLog::whereNotNull('module')->distinct()->orderBy('module')->pluck('module');
-        $users = User::orderBy('first_name')->orderBy('last_name')->get();
+        $modulesQuery = AuditLog::query()->whereNotNull('module');
+        $usersQuery = User::query();
+
+        if (! CampusAccess::canViewAllCampuses($request->user())) {
+            $campus = CampusAccess::userCampus($request->user());
+            $modulesQuery->whereHas('user', fn ($query) => $query->where('campus', $campus));
+            $usersQuery->where('campus', $campus);
+        }
+
+        $modules = $modulesQuery->distinct()->orderBy('module')->pluck('module');
+        $users = $usersQuery->orderBy('first_name')->orderBy('last_name')->get();
 
         return view('audit-logs.index', compact('logs', 'modules', 'users'));
     }
@@ -29,10 +39,11 @@ class AuditLogController extends Controller
 
         return response()->streamDownload(function () use ($rows) {
             $out = fopen('php://output', 'w');
-            fputcsv($out, ['Date', 'User', 'Role', 'Module', 'Action', 'Description', 'IP Address']);
+            fputcsv($out, ['Date', 'Campus', 'User', 'Role', 'Module', 'Action', 'Description', 'IP Address']);
             foreach ($rows as $log) {
                 fputcsv($out, [
                     $log->created_at?->format('Y-m-d H:i:s'),
+                    $log->user?->campus,
                     $log->user?->full_name ?? 'System',
                     $log->user?->getRoleNames()->join(', '),
                     $log->module,
@@ -59,7 +70,16 @@ class AuditLogController extends Controller
 
     private function query(Request $request)
     {
-        return AuditLog::query()->with('user.roles')
+        $query = AuditLog::query()->with('user.roles');
+
+        if (! CampusAccess::canViewAllCampuses($request->user())) {
+            $query->whereHas('user', fn ($userQuery) => $userQuery->where(
+                'campus',
+                CampusAccess::userCampus($request->user())
+            ));
+        }
+
+        return $query
             ->when($request->filled('search'), function ($query) use ($request) {
                 $search = $request->string('search')->toString();
                 $query->where(function ($sub) use ($search) {

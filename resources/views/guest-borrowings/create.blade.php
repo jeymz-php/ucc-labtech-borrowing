@@ -1,7 +1,7 @@
 <x-public-layout>
     <div
         x-data="guestBorrowingForm()"
-        x-init="startInventoryPolling()"
+        x-init="initializeScheduleLimits(); startInventoryPolling()"
         x-effect="document.body.classList.toggle('overflow-hidden', agreementOpen)"
         class="space-y-6"
     >
@@ -79,6 +79,27 @@
                             <span class="mt-1 block text-xs leading-5 text-gray-500">{{ $description }}</span>
                         </label>
                     @endforeach
+                </div>
+
+                <div class="mt-6 rounded-2xl border border-green-200 bg-green-50 p-4 sm:p-5">
+                    <label for="campus" class="text-sm font-bold text-green-950">Campus</label>
+                    <select
+                        id="campus"
+                        name="campus"
+                        x-model="campus"
+                        x-on:change="changeCampus()"
+                        required
+                        class="mt-2 w-full rounded-xl border-green-300 bg-white focus:border-green-600 focus:ring-green-600"
+                    >
+                        @foreach ($campuses as $campusOption)
+                            <option value="{{ $campusOption }}" @selected($selectedCampus === $campusOption)>
+                                {{ $campusOption }}
+                            </option>
+                        @endforeach
+                    </select>
+                    <p class="mt-2 text-xs leading-5 text-green-800">
+                        Only equipment assigned to the selected campus will be displayed and processed.
+                    </p>
                 </div>
 
                 <div class="mt-7 grid gap-5 sm:grid-cols-2">
@@ -169,7 +190,8 @@
                         </div>
                         <div>
                             <label for="borrow_at" class="text-sm font-semibold text-gray-700">Borrow date and time</label>
-                            <input id="borrow_at" type="datetime-local" name="borrow_at" value="{{ old('borrow_at') }}" required class="mt-2 w-full rounded-xl border-gray-300 focus:border-green-600 focus:ring-green-600">
+                            <input id="borrow_at" type="datetime-local" name="borrow_at" value="{{ old('borrow_at') }}" min="{{ now()->format('Y-m-d\TH:i') }}" required class="mt-2 w-full rounded-xl border-gray-300 focus:border-green-600 focus:ring-green-600">
+                        <p class="mt-1.5 text-xs text-gray-500">The borrowing time cannot be earlier than the current time.</p>
                         </div>
                         <div>
                             <label for="expected_return_at" class="text-sm font-semibold text-gray-700">Expected return date and time</label>
@@ -187,7 +209,7 @@
                         <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                             <div>
                                 <h2 class="text-xl font-bold text-gray-900">Select Equipment Units</h2>
-                                <p class="mt-1 text-sm text-gray-500">All active equipment remains visible. Only units marked Available can be selected.</p>
+                                <p class="mt-1 text-sm text-gray-500">Showing equipment assigned to <strong>{{ $selectedCampus }}</strong>. All statuses remain visible, but only Available units can be selected.</p>
                             </div>
                             <div class="w-full lg:max-w-md">
                                 <label for="guestEquipmentSearch" class="sr-only">Search equipment</label>
@@ -210,6 +232,7 @@
                                     $unit->asset_number,
                                     $unit->condition,
                                     $unit->availability_status,
+                                    $unit->campus,
                                     $location,
                                 ])));
                             @endphp
@@ -233,7 +256,7 @@
                                 <span class="min-w-0 flex-1">
                                     <span class="block font-bold text-gray-900">{{ $unit->item->display_name }}</span>
                                     <span class="mt-1 block text-xs text-gray-500">{{ $unit->asset_number ?: 'No asset number' }} · {{ ucfirst(str_replace('_', ' ', $unit->condition)) }}</span>
-                                    <span class="mt-1 block text-xs text-gray-400">{{ $location ?: 'Location not specified' }}</span>
+                                    <span class="mt-1 block text-xs text-gray-400">{{ $unit->campus }} · {{ $location ?: 'Location not specified' }}</span>
                                     <span data-unit-status="{{ $unit->id }}" class="mt-3 inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide {{ $unit->availability_status === 'available' ? 'bg-green-100 text-green-700' : ($unit->availability_status === 'borrowed' ? 'bg-violet-100 text-violet-700' : ($unit->availability_status === 'reserved' ? 'bg-amber-100 text-amber-700' : 'bg-gray-200 text-gray-700')) }}">
                                         {{ ucfirst(str_replace('_', ' ', $unit->availability_status)) }}
                                     </span>
@@ -388,6 +411,7 @@
             return {
                 step: {{ $errors->has('purpose') || $errors->has('borrow_at') || $errors->has('expected_return_at') || $errors->has('item_unit_ids') ? 2 : 1 }},
                 role: @json(old('role', 'student')),
+                campus: @json($selectedCampus),
                 search: '',
                 agreementOpen: false,
                 termsAccepted: {{ old('terms_accepted') ? 'true' : 'false' }},
@@ -396,6 +420,48 @@
                 liveUnits: {},
                 pollTimer: null,
                 inventoryRequestRunning: false,
+
+                changeCampus() {
+                    const target = new URL(@json(route('guest-borrowings.create')), window.location.origin);
+                    target.searchParams.set('campus', this.campus);
+                    window.UCCLoader?.show('Loading equipment for ' + this.campus + '...', 'Switching campus');
+                    window.location.assign(target.toString());
+                },
+
+                toLocalDateTimeValue(date) {
+                    const pad = value => String(value).padStart(2, '0');
+                    return date.getFullYear() + '-'
+                        + pad(date.getMonth() + 1) + '-'
+                        + pad(date.getDate()) + 'T'
+                        + pad(date.getHours()) + ':'
+                        + pad(date.getMinutes());
+                },
+
+                initializeScheduleLimits() {
+                    const borrowInput = document.getElementById('borrow_at');
+                    const returnInput = document.getElementById('expected_return_at');
+
+                    const updateMinimums = () => {
+                        const now = new Date();
+                        now.setSeconds(0, 0);
+                        const minimum = this.toLocalDateTimeValue(now);
+
+                        if (borrowInput) {
+                            borrowInput.min = minimum;
+                        }
+
+                        if (returnInput) {
+                            const borrowValue = borrowInput?.value;
+                            returnInput.min = borrowValue && borrowValue > minimum
+                                ? borrowValue
+                                : minimum;
+                        }
+                    };
+
+                    borrowInput?.addEventListener('change', updateMinimums);
+                    updateMinimums();
+                    window.setInterval(updateMinimums, 60000);
+                },
 
                 get canSubmitAgreement() {
                     return this.termsAccepted && this.privacyAccepted && this.liabilityAccepted;
@@ -456,7 +522,10 @@
                     this.inventoryRequestRunning = true;
 
                     try {
-                        const response = await fetch(@json(route('guest-borrowings.inventory')), {
+                        const inventoryUrl = new URL(@json(route('guest-borrowings.inventory')), window.location.origin);
+                        inventoryUrl.searchParams.set('campus', this.campus);
+
+                        const response = await fetch(inventoryUrl.toString(), {
                             headers: { 'Accept': 'application/json' },
                             cache: 'no-store',
                         });

@@ -7,10 +7,13 @@ use App\Models\Borrowing;
 use App\Models\BorrowingItem;
 use App\Models\GuestBorrower;
 use App\Models\ItemUnit;
+use App\Support\CampusAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
@@ -18,16 +21,28 @@ use Symfony\Component\HttpFoundation\Response;
 
 class GuestBorrowingController extends Controller
 {
-    public function create(): View
+    public function create(Request $request): View
     {
+        $campus = old('campus', $request->query('campus'));
+
+        if (! CampusAccess::isValid($campus)) {
+            $campus = CampusAccess::default();
+        }
+
         return view('guest-borrowings.create', [
-            'units' => $this->units(),
+            'campuses' => CampusAccess::options(),
+            'selectedCampus' => $campus,
+            'units' => $campus ? $this->units($campus) : collect(),
         ]);
     }
 
     public function store(StoreGuestBorrowingRequest $request): RedirectResponse
     {
         $borrowing = DB::transaction(function () use ($request) {
+            $campus = CampusAccess::validateRequestedCampus(
+                $request->validated('campus')
+            );
+
             $unitIds = collect($request->validated('item_unit_ids'))
                 ->map(fn ($id) => (int) $id)
                 ->unique()
@@ -35,17 +50,20 @@ class GuestBorrowingController extends Controller
 
             $units = ItemUnit::query()
                 ->with('item')
+                ->where('campus', $campus)
                 ->whereIn('id', $unitIds)
                 ->lockForUpdate()
                 ->get();
 
             if ($units->count() !== $unitIds->count()) {
                 throw ValidationException::withMessages([
-                    'item_unit_ids' => 'One or more selected equipment units could not be found.',
+                    'item_unit_ids' => 'One or more selected units do not belong to the selected campus.',
                 ]);
             }
 
-            $unavailable = $units->first(fn (ItemUnit $unit) => ! $unit->isBorrowable());
+            $unavailable = $units->first(
+                fn (ItemUnit $unit) => ! $unit->isBorrowable()
+            );
 
             if ($unavailable) {
                 throw ValidationException::withMessages([
@@ -57,6 +75,7 @@ class GuestBorrowingController extends Controller
             $hasConflict = DB::table('borrowing_items')
                 ->join('borrowings', 'borrowings.id', '=', 'borrowing_items.borrowing_id')
                 ->whereIn('borrowing_items.item_unit_id', $unitIds)
+                ->where('borrowings.campus', $campus)
                 ->whereIn('borrowings.status', ['pending', 'approved', 'released', 'overdue'])
                 ->where('borrowings.borrow_at', '<', $request->validated('expected_return_at'))
                 ->where('borrowings.expected_return_at', '>', $request->validated('borrow_at'))
@@ -78,6 +97,7 @@ class GuestBorrowingController extends Controller
                     ? trim((string) $request->validated('id_number'))
                     : null,
                 'email' => Str::lower(trim($request->validated('email'))),
+                'campus' => $campus,
                 'room' => trim($request->validated('room')),
                 'program' => $role === 'student'
                     ? trim((string) $request->validated('program'))
@@ -99,6 +119,7 @@ class GuestBorrowingController extends Controller
                 'guest_borrower_id' => $guest->id,
                 'public_token' => Str::random(64),
                 'source' => 'guest',
+                'campus' => $campus,
                 'purpose' => $request->validated('purpose'),
                 'borrow_at' => $request->validated('borrow_at'),
                 'expected_return_at' => $request->validated('expected_return_at'),
@@ -143,6 +164,7 @@ class GuestBorrowingController extends Controller
 
         return response()->json([
             'code' => $borrowing->borrowing_code,
+            'campus' => $borrowing->campus,
             'status' => $borrowing->status,
             'status_label' => ucfirst($borrowing->status),
             'admin_notes' => $borrowing->admin_notes,
@@ -155,16 +177,26 @@ class GuestBorrowingController extends Controller
                 'id' => $line->itemUnit?->id,
                 'name' => $line->itemUnit?->item?->display_name,
                 'asset_number' => $line->itemUnit?->asset_number,
+                'campus' => $line->itemUnit?->campus,
                 'availability_status' => $line->itemUnit?->availability_status,
             ])->values(),
         ]);
     }
 
-    public function inventory(): JsonResponse
+    public function inventory(Request $request): JsonResponse
     {
+        $data = $request->validate([
+            'campus' => ['required', Rule::in(CampusAccess::options())],
+        ]);
+
+        $campus = $data['campus'];
+
         return response()->json([
             'generated_at' => now()->toIso8601String(),
-            'units' => $this->units()->map(fn (ItemUnit $unit) => $this->unitPayload($unit))->values(),
+            'campus' => $campus,
+            'units' => $this->units($campus)
+                ->map(fn (ItemUnit $unit) => $this->unitPayload($unit))
+                ->values(),
         ]);
     }
 
@@ -200,10 +232,11 @@ class GuestBorrowingController extends Controller
             ->firstOrFail();
     }
 
-    private function units()
+    private function units(string $campus)
     {
         return ItemUnit::query()
             ->with(['item.category'])
+            ->where('campus', $campus)
             ->where('availability_status', '!=', 'archived')
             ->whereHas('item', fn ($query) => $query->where('status', 'active'))
             ->orderByRaw("CASE availability_status WHEN 'available' THEN 1 WHEN 'reserved' THEN 2 WHEN 'borrowed' THEN 3 WHEN 'maintenance' THEN 4 WHEN 'lost' THEN 5 ELSE 6 END")
@@ -218,6 +251,7 @@ class GuestBorrowingController extends Controller
             'name' => $unit->item?->display_name,
             'asset_number' => $unit->asset_number,
             'condition' => $unit->condition,
+            'campus' => $unit->campus,
             'location' => $unit->location ?: $unit->item?->location,
             'availability_status' => $unit->availability_status,
             'selectable' => $unit->isBorrowable(),

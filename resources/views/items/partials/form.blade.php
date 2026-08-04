@@ -125,6 +125,21 @@
             </div>
 
             <div class="mt-5 grid gap-5 sm:grid-cols-2">
+                <div class="sm:col-span-2">
+                    <label for="campus" class="block text-sm font-semibold text-gray-700">Campus for Initial Units</label>
+                    @if ($canSelectCampus ?? false)
+                        <select id="campus" name="campus" :required="unitCount > 0" class="mt-2 block w-full rounded-xl border-gray-300 px-4 py-2.5 text-sm shadow-sm focus:border-green-600 focus:ring-green-600">
+                            @foreach ($campuses as $campusOption)
+                                <option value="{{ $campusOption }}" @selected(old('campus', $selectedCampus) === $campusOption)>{{ $campusOption }}</option>
+                            @endforeach
+                        </select>
+                    @else
+                        <input type="hidden" name="campus" value="{{ $selectedCampus }}">
+                        <div class="mt-2 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-800">{{ $selectedCampus }}</div>
+                    @endif
+                    @error('campus')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                </div>
+
                 <div>
                     <label for="initial_units_count" class="block text-sm font-semibold text-gray-700">Number of Units <span class="text-red-500">*</span></label>
                     <input x-model.number="unitCount" id="initial_units_count" name="initial_units_count" type="number" min="0" max="500" value="{{ old('initial_units_count', 0) }}" required class="mt-2 block w-full rounded-xl border-gray-300 px-4 py-2.5 text-sm shadow-sm focus:border-green-600 focus:ring-green-600">

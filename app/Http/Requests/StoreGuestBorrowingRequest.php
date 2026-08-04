@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Support\CampusAccess;
 use App\Models\Setting;
 use Carbon\Carbon;
 use Illuminate\Foundation\Http\FormRequest;
@@ -22,6 +23,8 @@ class StoreGuestBorrowingRequest extends FormRequest
             (int) Setting::getValue('max_items_per_borrowing', 10)
         );
 
+        $minimumBorrowAt = now()->startOfMinute()->toDateTimeString();
+
         return [
             'role' => ['required', Rule::in(['student', 'professor', 'faculty_staff'])],
             'full_name' => ['required', 'string', 'max:180'],
@@ -32,13 +35,14 @@ class StoreGuestBorrowingRequest extends FormRequest
                 'max:40',
             ],
             'email' => ['required', 'email', 'max:255'],
+            'campus' => ['required', Rule::in(CampusAccess::options())],
             'room' => ['required', 'string', 'max:120'],
             'program' => ['nullable', 'required_if:role,student', 'string', 'max:180'],
             'year_level' => ['nullable', 'required_if:role,student', 'string', 'max:40'],
             'section' => ['nullable', 'required_if:role,student', 'string', 'max:80'],
             'department' => ['nullable', 'required_if:role,professor', 'string', 'max:180'],
             'purpose' => ['required', 'string', 'max:1500'],
-            'borrow_at' => ['required', 'date', 'after_or_equal:now'],
+            'borrow_at' => ['required', 'date', 'after_or_equal:'.$minimumBorrowAt],
             'expected_return_at' => ['required', 'date', 'after:borrow_at'],
             'request_notes' => ['nullable', 'string', 'max:1500'],
             'item_unit_ids' => ['required', 'array', 'min:1', 'max:'.$maximumItems],
@@ -57,6 +61,9 @@ class StoreGuestBorrowingRequest extends FormRequest
             'liability_accepted.accepted' => 'You must accept responsibility for lost or damaged equipment.',
             'id_number.required_if' => 'The ID number is required for the selected borrower role.',
             'room.required' => 'Please enter the room where the equipment will be used or delivered.',
+            'campus.required' => 'Please select your campus.',
+            'campus.in' => 'Select a valid University of Caloocan City campus.',
+            'borrow_at.after_or_equal' => 'The borrowing date and time cannot be earlier than the current date and time.',
         ];
     }
 

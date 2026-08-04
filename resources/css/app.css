@@ -16,3 +16,25 @@
             text-xs shadow-sm focus:border-green-600 focus:ring-green-600;
     }
 }
+/* UCC LabTech global loading experience */
+@keyframes ucc-loader-spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes ucc-loader-progress {
+    0% { transform: translateX(-140%); }
+    50% { transform: translateX(140%); }
+    100% { transform: translateX(360%); }
+}
+
+.ucc-loader-ring {
+    animation: ucc-loader-spin 0.9s linear infinite;
+}
+
+.ucc-loader-progress {
+    animation: ucc-loader-progress 1.35s ease-in-out infinite;
+}
+
+body.ucc-is-loading {
+    overflow: hidden !important;
+}

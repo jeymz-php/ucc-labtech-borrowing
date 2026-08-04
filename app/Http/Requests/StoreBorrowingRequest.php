@@ -21,9 +21,11 @@ class StoreBorrowingRequest extends FormRequest
             (int) Setting::getValue('max_items_per_borrowing', 10)
         );
 
+        $minimumBorrowAt = now()->startOfMinute()->toDateTimeString();
+
         return [
             'purpose' => ['required', 'string', 'max:1500'],
-            'borrow_at' => ['required', 'date', 'after_or_equal:today'],
+            'borrow_at' => ['required', 'date', 'after_or_equal:'.$minimumBorrowAt],
             'expected_return_at' => ['required', 'date', 'after:borrow_at'],
             'request_notes' => ['nullable', 'string', 'max:1500'],
             'item_unit_ids' => [
@@ -37,6 +39,14 @@ class StoreBorrowingRequest extends FormRequest
                 'distinct',
                 'exists:item_units,id',
             ],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'borrow_at.after_or_equal' => 'The borrowing date and time cannot be earlier than the current date and time.',
+            'expected_return_at.after' => 'The expected return must be later than the borrowing date and time.',
         ];
     }
 

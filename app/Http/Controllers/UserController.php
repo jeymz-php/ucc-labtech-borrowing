@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Mail\TemporaryPasswordMail;
 use App\Models\Setting;
 use App\Models\User;
+use App\Support\CampusAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -45,8 +46,8 @@ class UserController extends Controller
         return view('users.index', [
             'users' => $users,
             'roles' => Role::query()->orderBy('name')->get(),
-            'campuses' => self::CAMPUSES,
-            'statistics' => $this->statistics(),
+            'campuses' => $this->campusOptions($request->user()),
+            'statistics' => $this->statistics($request->user()),
             'archivedMode' => false,
         ]);
     }
@@ -56,7 +57,11 @@ class UserController extends Controller
         abort_unless($request->user()->can('view users'), 403);
 
         $users = User::onlyTrashed()
-            ->with('roles')
+            ->with('roles');
+
+        CampusAccess::scopeForUser($users, $request->user());
+
+        $users = $users
             ->when($request->filled('search'), function ($query) use ($request) {
                 $search = trim($request->string('search')->toString());
 
@@ -77,8 +82,8 @@ class UserController extends Controller
         return view('users.index', [
             'users' => $users,
             'roles' => Role::query()->orderBy('name')->get(),
-            'campuses' => self::CAMPUSES,
-            'statistics' => $this->statistics(),
+            'campuses' => $this->campusOptions($request->user()),
+            'statistics' => $this->statistics($request->user()),
             'archivedMode' => true,
         ]);
     }
@@ -89,7 +94,7 @@ class UserController extends Controller
 
         return view('users.create', [
             'roles' => $this->assignableRoles($request->user()),
-            'campuses' => self::CAMPUSES,
+            'campuses' => $this->campusOptions($request->user()),
             'statuses' => ['active', 'pending', 'inactive'],
         ]);
     }
@@ -191,7 +196,7 @@ class UserController extends Controller
         return view('users.edit', [
             'managedUser' => $user,
             'roles' => $this->assignableRoles($request->user(), $user),
-            'campuses' => self::CAMPUSES,
+            'campuses' => $this->campusOptions($request->user()),
         ]);
     }
 
@@ -305,8 +310,11 @@ class UserController extends Controller
 
     private function filteredUsers(Request $request)
     {
-        return User::query()
-            ->with('roles')
+        $query = User::query()->with('roles');
+
+        CampusAccess::scopeForUser($query, $request->user());
+
+        return $query
             ->when($request->filled('search'), function ($query) use ($request) {
                 $search = trim($request->string('search')->toString());
 
@@ -331,14 +339,20 @@ class UserController extends Controller
             });
     }
 
-    private function statistics(): array
+    private function statistics(User $actor): array
     {
+        $users = User::query();
+        $archived = User::onlyTrashed();
+
+        CampusAccess::scopeForUser($users, $actor);
+        CampusAccess::scopeForUser($archived, $actor);
+
         return [
-            'total' => User::count(),
-            'active' => User::where('account_status', 'active')->count(),
-            'pending' => User::where('account_status', 'pending')->count(),
-            'suspended' => User::where('account_status', 'suspended')->count(),
-            'archived' => User::onlyTrashed()->count(),
+            'total' => (clone $users)->count(),
+            'active' => (clone $users)->where('account_status', 'active')->count(),
+            'pending' => (clone $users)->where('account_status', 'pending')->count(),
+            'suspended' => (clone $users)->where('account_status', 'suspended')->count(),
+            'archived' => $archived->count(),
         ];
     }
 
@@ -366,7 +380,11 @@ class UserController extends Controller
                 'max:255',
                 Rule::unique('users', 'email')->ignore($user?->id),
             ],
-            'campus' => ['required', Rule::in(self::CAMPUSES)],
+            'campus' => [
+                Rule::requiredIf(fn () => CampusAccess::canViewAllCampuses($request->user())),
+                'nullable',
+                Rule::in(CampusAccess::options()),
+            ],
             'department' => [
                 'nullable',
                 'required_if:role,professor,faculty',
@@ -405,7 +423,7 @@ class UserController extends Controller
             ];
         }
 
-        return $request->validate($rules, [
+        $validated = $request->validate($rules, [
             'id_number.size' => 'The ID number must contain exactly 8 characters.',
             'department.required_if' => 'The department is required for professors and faculty.',
             'program.required_if' => 'The program is required for students.',
@@ -413,6 +431,13 @@ class UserController extends Controller
             'section.required_if' => 'The section is required for students.',
             'contact_number.regex' => 'Enter a valid Philippine mobile number.',
         ]);
+
+        $validated['campus'] = CampusAccess::campusForWrite(
+            $request->user(),
+            $validated['campus'] ?? null
+        );
+
+        return $validated;
     }
 
     private function assignableRoles(User $actor, ?User $target = null)
@@ -441,9 +466,20 @@ class UserController extends Controller
             return;
         }
 
+        if (! CampusAccess::canAccess($actor, $target->campus)) {
+            abort(403, 'This user belongs to another campus.');
+        }
+
         if ($target->hasAnyRole(['admin', 'super_admin'])) {
             abort(403);
         }
+    }
+
+    private function campusOptions(User $actor): array
+    {
+        return CampusAccess::canViewAllCampuses($actor)
+            ? CampusAccess::options()
+            : [CampusAccess::userCampus($actor)];
     }
 
     private function ensureNotSelf(User $actor, User $target): void

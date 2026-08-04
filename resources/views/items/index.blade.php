@@ -108,8 +108,8 @@
                                 <span class="rounded-full px-2.5 py-1 text-[10px] font-bold capitalize {{ $item->status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600' }}">{{ $item->status }}</span>
                             </div>
                             <div class="mt-4 grid grid-cols-3 gap-2 rounded-xl bg-gray-50 p-3 text-center">
-                                <div><p class="text-lg font-bold text-gray-900">{{ $item->quantity_total }}</p><p class="text-[10px] uppercase text-gray-400">Total</p></div>
-                                <div><p class="text-lg font-bold text-green-700">{{ $item->quantity_available }}</p><p class="text-[10px] uppercase text-gray-400">Available</p></div>
+                                <div><p class="text-lg font-bold text-gray-900">{{ $item->campus_quantity_total ?? $item->quantity_total }}</p><p class="text-[10px] uppercase text-gray-400">Total</p></div>
+                                <div><p class="text-lg font-bold text-green-700">{{ $item->campus_quantity_available ?? $item->quantity_available }}</p><p class="text-[10px] uppercase text-gray-400">Available</p></div>
                                 <div><p class="text-lg font-bold {{ $item->isLowStock() ? 'text-amber-600' : 'text-gray-900' }}">{{ $item->minimum_stock }}</p><p class="text-[10px] uppercase text-gray-400">Minimum</p></div>
                             </div>
                             <div class="mt-4 flex items-center justify-between gap-3 border-t border-gray-100 pt-4">

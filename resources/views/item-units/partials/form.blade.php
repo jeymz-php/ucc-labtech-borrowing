@@ -1,5 +1,23 @@
 @php($unit = $itemUnit ?? null)
 <div class="grid gap-6 lg:grid-cols-2">
+    <div class="lg:col-span-2">
+        <label class="mb-2 block text-sm font-semibold text-gray-700">Campus</label>
+        @if ($canSelectCampus ?? false)
+            <select name="campus" required class="w-full rounded-xl border-gray-300 focus:border-green-600 focus:ring-green-600">
+                @foreach ($campuses as $campusOption)
+                    <option value="{{ $campusOption }}" @selected(old('campus', $selectedCampus ?? $unit?->campus) === $campusOption)>
+                        {{ $campusOption }}
+                    </option>
+                @endforeach
+            </select>
+        @else
+            <input type="hidden" name="campus" value="{{ $selectedCampus ?? $unit?->campus }}">
+            <div class="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-800">
+                {{ $selectedCampus ?? $unit?->campus }}
+            </div>
+        @endif
+        @error('campus')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+    </div>
     <div>
         <label class="mb-2 block text-sm font-semibold text-gray-700">Serial Number</label>
         <input name="serial_number" value="{{ old('serial_number', $unit?->serial_number) }}" class="w-full rounded-xl border-gray-300 focus:border-green-600 focus:ring-green-600" placeholder="Optional manufacturer serial">

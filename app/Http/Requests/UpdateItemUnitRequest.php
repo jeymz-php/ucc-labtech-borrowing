@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Support\CampusAccess;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -17,6 +18,7 @@ class UpdateItemUnitRequest extends FormRequest
         $unitId = $this->route('item_unit')->id;
 
         return [
+            'campus' => [Rule::requiredIf(fn () => $this->user()?->hasRole('super_admin')), 'nullable', Rule::in(CampusAccess::options())],
             'serial_number' => ['nullable','string','max:100',Rule::unique('item_units','serial_number')->ignore($unitId)->whereNull('deleted_at')],
             'property_number' => ['nullable','string','max:100',Rule::unique('item_units','property_number')->ignore($unitId)->whereNull('deleted_at')],
             'acquisition_date' => ['nullable','date','before_or_equal:today'],

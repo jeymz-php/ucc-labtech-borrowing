@@ -16,6 +16,7 @@ class ItemUnit extends Model
 
     protected $fillable = [
         'item_id',
+        'campus',
         'asset_number',
         'barcode_value',
         'barcode_path',
@@ -65,6 +66,19 @@ class ItemUnit extends Model
             User::class,
             'updated_by'
         );
+    }
+
+
+    public function scopeForCampus(Builder $query, ?string $campus): Builder
+    {
+        return $campus ? $query->where('campus', $campus) : $query;
+    }
+
+    public function scopeVisibleTo(Builder $query, User $user): Builder
+    {
+        return $user->hasRole('super_admin')
+            ? $query
+            : $query->where('campus', $user->campus);
     }
 
     public function scopeAvailable(Builder $query): Builder

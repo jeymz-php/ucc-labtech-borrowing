@@ -42,6 +42,11 @@
             {{ $borrowing->purpose }}
         </div>
 
+        <div>
+            <div class="label">Campus</div>
+            {{ $borrowing->campus }}
+        </div>
+
         @if ($borrowing->guestBorrower?->room)
             <div>
                 <div class="label">Room</div>

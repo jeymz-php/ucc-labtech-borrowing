@@ -6,6 +6,7 @@ use App\Models\Borrowing;
 use App\Models\MaintenanceRecord;
 use App\Notifications\BorrowingStatusNotification;
 use App\Services\BarcodeScannerService;
+use App\Support\CampusAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -39,6 +40,11 @@ class ScannerController extends Controller
             ], 404);
         }
 
+        CampusAccess::ensureCanAccess(
+            $request->user(),
+            $borrowing->campus
+        );
+
         return response()->json([
             'success' => true,
 
@@ -46,6 +52,7 @@ class ScannerController extends Controller
                 'id' => $borrowing->id,
                 'code' => $borrowing->borrowing_code,
                 'status' => $borrowing->status,
+                'campus' => $borrowing->campus,
                 'purpose' => $borrowing->purpose,
 
                 'borrow_at' => $borrowing->borrow_at?->toDateTimeString(),
@@ -109,6 +116,10 @@ class ScannerController extends Controller
                             'availability_status' => $line
                                 ->itemUnit
                                 ->availability_status,
+
+                            'campus' => $line
+                                ->itemUnit
+                                ->campus,
                         ];
                     })
                     ->values(),
@@ -151,6 +162,11 @@ class ScannerController extends Controller
             ], 404);
         }
 
+        CampusAccess::ensureCanAccess(
+            $request->user(),
+            $borrowing->campus
+        );
+
         $unit = $this->scanner->itemUnit(
             $data['barcode']
         );
@@ -160,6 +176,17 @@ class ScannerController extends Controller
                 'success' => false,
                 'message' => 'Equipment barcode not found.',
             ], 404);
+        }
+
+        CampusAccess::ensureCanAccess(
+            $request->user(),
+            $unit->campus
+        );
+
+        if (! hash_equals((string) $borrowing->campus, (string) $unit->campus)) {
+            throw ValidationException::withMessages([
+                'barcode' => 'The scanned equipment belongs to a different campus.',
+            ]);
         }
 
         $validation = $data['mode'] === 'release'
@@ -216,6 +243,8 @@ class ScannerController extends Controller
 
                 'availability_status' => $unit
                     ->availability_status,
+
+                'campus' => $unit->campus,
             ],
         ]);
     }
@@ -263,6 +292,11 @@ class ScannerController extends Controller
                     'user',
                     'items.itemUnit.item',
                 ]);
+
+                CampusAccess::ensureCanAccess(
+                    $request->user(),
+                    $borrowing->campus
+                );
 
                 if (
                     $borrowing->status
@@ -358,6 +392,8 @@ class ScannerController extends Controller
                 'status' => $borrowing
                     ->status,
 
+                'campus' => $borrowing->campus,
+
                 'released_at' => $borrowing
                     ->released_at
                     ?->toDateTimeString(),
@@ -429,6 +465,11 @@ class ScannerController extends Controller
                     'user',
                     'items.itemUnit.item',
                 ]);
+
+                CampusAccess::ensureCanAccess(
+                    $request->user(),
+                    $borrowing->campus
+                );
 
                 if (
                     ! in_array(
@@ -602,6 +643,8 @@ class ScannerController extends Controller
 
                 'status' => $borrowing
                     ->status,
+
+                'campus' => $borrowing->campus,
 
                 'returned_at' => $borrowing
                     ->returned_at
