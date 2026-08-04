@@ -101,6 +101,18 @@
                         </div>
                     @endif
 
+                    @if ($borrowing->guestBorrower?->room)
+                        <div>
+                            <dt class="text-xs font-semibold uppercase text-gray-400">
+                                Room
+                            </dt>
+
+                            <dd class="mt-1 text-sm font-medium text-gray-800">
+                                {{ $borrowing->guestBorrower->room }}
+                            </dd>
+                        </div>
+                    @endif
+
                     <div>
                         <dt class="text-xs font-semibold uppercase text-gray-400">
                             Borrow Schedule

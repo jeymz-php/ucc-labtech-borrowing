@@ -73,6 +73,10 @@
                             @endif
                         </div>
                         <div>
+                            <dt class="text-xs font-bold uppercase tracking-wide text-gray-400">Your Room</dt>
+                            <dd class="mt-1 text-sm font-semibold text-gray-800">{{ $borrowing->guestBorrower->room ?: 'Not specified' }}</dd>
+                        </div>
+                        <div>
                             <dt class="text-xs font-bold uppercase tracking-wide text-gray-400">Borrow Date and Time</dt>
                             <dd class="mt-1 text-sm text-gray-800">{{ $borrowing->borrow_at?->format('M d, Y h:i A') }}</dd>
                         </div>

@@ -78,6 +78,7 @@ class GuestBorrowingController extends Controller
                     ? trim((string) $request->validated('id_number'))
                     : null,
                 'email' => Str::lower(trim($request->validated('email'))),
+                'room' => trim($request->validated('room')),
                 'program' => $role === 'student'
                     ? trim((string) $request->validated('program'))
                     : null,

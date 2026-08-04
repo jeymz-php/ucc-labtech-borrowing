@@ -32,6 +32,7 @@ class StoreGuestBorrowingRequest extends FormRequest
                 'max:40',
             ],
             'email' => ['required', 'email', 'max:255'],
+            'room' => ['required', 'string', 'max:120'],
             'program' => ['nullable', 'required_if:role,student', 'string', 'max:180'],
             'year_level' => ['nullable', 'required_if:role,student', 'string', 'max:40'],
             'section' => ['nullable', 'required_if:role,student', 'string', 'max:80'],
@@ -55,6 +56,7 @@ class StoreGuestBorrowingRequest extends FormRequest
             'privacy_accepted.accepted' => 'You must acknowledge the Privacy Policy.',
             'liability_accepted.accepted' => 'You must accept responsibility for lost or damaged equipment.',
             'id_number.required_if' => 'The ID number is required for the selected borrower role.',
+            'room.required' => 'Please enter the room where the equipment will be used or delivered.',
         ];
     }
 

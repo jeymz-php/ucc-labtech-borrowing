@@ -2,6 +2,7 @@
     <div
         x-data="guestBorrowingForm()"
         x-init="startInventoryPolling()"
+        x-effect="document.body.classList.toggle('overflow-hidden', agreementOpen)"
         class="space-y-6"
     >
         <section class="overflow-hidden rounded-3xl bg-green-800 text-white shadow-xl">
@@ -94,6 +95,26 @@
                     <div :class="role === 'professor' ? 'sm:col-span-2' : ''">
                         <label for="email" class="text-sm font-semibold text-gray-700">Email Address</label>
                         <input id="email" type="email" name="email" value="{{ old('email') }}" required autocomplete="email" placeholder="name@example.com" class="mt-2 w-full rounded-xl border-gray-300 focus:border-green-600 focus:ring-green-600">
+                    </div>
+
+                    <div class="sm:col-span-2">
+                        <label for="room" class="text-sm font-semibold text-gray-700">
+                            Your Room
+                        </label>
+                        <input
+                            id="room"
+                            type="text"
+                            name="room"
+                            value="{{ old('room') }}"
+                            required
+                            maxlength="120"
+                            autocomplete="off"
+                            placeholder="Example: Room 504, Laboratory 2, or Faculty Room"
+                            class="mt-2 w-full rounded-xl border-gray-300 focus:border-green-600 focus:ring-green-600"
+                        >
+                        <p class="mt-1.5 text-xs text-gray-500">
+                            Enter the room where the equipment will be used or delivered.
+                        </p>
                     </div>
 
                     <template x-if="role === 'student'">
@@ -230,54 +251,132 @@
                 </div>
             </section>
 
-            <div x-show="agreementOpen" x-cloak x-transition.opacity class="fixed inset-0 z-[10000] flex items-center justify-center bg-gray-950/65 p-4" role="dialog" aria-modal="true">
-                <div x-on:click.outside="agreementOpen = false" class="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
-                    <div class="flex items-start justify-between gap-4 border-b border-gray-200 px-6 py-5">
-                        <div>
-                            <h2 class="text-xl font-bold text-gray-900">Terms, Privacy, and Borrower Responsibility</h2>
-                            <p class="mt-1 text-sm text-gray-500">Review and accept before submitting your request.</p>
+            <div
+                x-show="agreementOpen"
+                x-cloak
+                x-transition.opacity
+                x-on:keydown.escape.window="agreementOpen = false"
+                x-on:click.self="agreementOpen = false"
+                class="fixed inset-0 z-[10000] overflow-y-auto overscroll-contain bg-gray-950/70 p-4"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="guestAgreementTitle"
+            >
+                <div class="flex min-h-full items-center justify-center">
+                    <div
+                        x-on:click.stop
+                        class="flex w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:rounded-3xl"
+                        style="max-height: calc(100dvh - 2rem);"
+                    >
+                        <div class="flex shrink-0 items-start justify-between gap-4 border-b border-gray-200 bg-white px-4 py-4 sm:px-6 sm:py-5">
+                            <div class="min-w-0">
+                                <h2 id="guestAgreementTitle" class="text-lg font-bold text-gray-900 sm:text-xl">
+                                    Terms, Privacy, and Borrower Responsibility
+                                </h2>
+                                <p class="mt-1 text-xs leading-5 text-gray-500 sm:text-sm">
+                                    Review every section and accept all three confirmations before submitting.
+                                </p>
+                            </div>
+
+                            <button
+                                type="button"
+                                x-on:click="agreementOpen = false"
+                                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-500 transition hover:bg-gray-50 hover:text-gray-800"
+                                aria-label="Close agreement modal"
+                            >
+                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12" />
+                                </svg>
+                            </button>
                         </div>
-                        <button type="button" x-on:click="agreementOpen = false" class="rounded-xl border border-gray-200 px-3 py-2 text-gray-500 hover:bg-gray-50">✕</button>
-                    </div>
 
-                    <div class="space-y-5 overflow-y-auto px-6 py-5 text-sm leading-6 text-gray-700">
-                        <section class="rounded-2xl border border-gray-200 p-5">
-                            <h3 class="font-bold text-gray-900">Terms and Conditions</h3>
-                            <p class="mt-2">The borrower confirms that the information provided is accurate and that the selected equipment will be used only for legitimate university, academic, teaching, or authorized institutional purposes.</p>
-                            <p class="mt-2">The borrower agrees to follow the approved borrowing schedule, present the generated borrowing QR code when requested, and return all equipment to the LabTech Office on or before the expected return date and time.</p>
-                        </section>
+                        <div
+                            id="agreementScrollArea"
+                            class="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 text-sm leading-6 text-gray-700 sm:space-y-5 sm:px-6 sm:py-5"
+                            style="-webkit-overflow-scrolling: touch;"
+                        >
+                            <section class="rounded-2xl border border-green-200 bg-green-50 p-4 sm:p-5">
+                                <div class="flex items-start gap-3">
+                                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-700 text-xs font-bold text-white">1</span>
+                                    <div>
+                                        <h3 class="text-base font-bold text-green-950">Terms and Conditions</h3>
+                                        <p class="mt-2 text-green-900">
+                                            The borrower confirms that the information provided is accurate and that the selected equipment will be used only for legitimate university, academic, teaching, or authorized institutional purposes.
+                                        </p>
+                                        <p class="mt-2 text-green-900">
+                                            The borrower agrees to follow the approved borrowing schedule, present the generated borrowing QR code when requested, and return all equipment to the LabTech Office on or before the expected return date and time.
+                                        </p>
+                                    </div>
+                                </div>
+                            </section>
 
-                        <section class="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-900">
-                            <h3 class="font-bold">Lost or Damaged Equipment</h3>
-                            <p class="mt-2">The borrower accepts responsibility for taking reasonable care of every borrowed unit. Any loss, theft, malfunction, physical damage, missing accessory, or other incident must be reported immediately to LabTech staff.</p>
-                            <p class="mt-2">When loss or damage is determined to have resulted from misuse, negligence, unauthorized handling, or failure to follow borrowing rules, the borrower may be required to cover repair or replacement costs, subject to assessment and applicable University of Caloocan City policies.</p>
-                        </section>
+                            <section class="rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:p-5">
+                                <div class="flex items-start gap-3">
+                                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-600 text-xs font-bold text-white">2</span>
+                                    <div>
+                                        <h3 class="text-base font-bold text-amber-950">Lost or Damaged Equipment</h3>
+                                        <p class="mt-2 text-amber-900">
+                                            The borrower accepts responsibility for taking reasonable care of every borrowed unit. Any loss, theft, malfunction, physical damage, missing accessory, or other incident must be reported immediately to LabTech staff.
+                                        </p>
+                                        <p class="mt-2 text-amber-900">
+                                            When loss or damage is determined to have resulted from misuse, negligence, unauthorized handling, or failure to follow borrowing rules, the borrower may be required to cover repair or replacement costs, subject to assessment and applicable University of Caloocan City policies.
+                                        </p>
+                                    </div>
+                                </div>
+                            </section>
 
-                        <section class="rounded-2xl border border-blue-200 bg-blue-50 p-5 text-blue-900">
-                            <h3 class="font-bold">Privacy Policy</h3>
-                            <p class="mt-2">The submitted name, university identification, role, academic or department information, email address, schedule, and borrowing records will be processed for identity verification, equipment administration, communication, audit, and accountability purposes.</p>
-                            <p class="mt-2">Information will be handled according to the Data Privacy Act of 2012 and applicable university data-handling policies.</p>
-                        </section>
+                            <section class="rounded-2xl border border-blue-200 bg-blue-50 p-4 sm:p-5">
+                                <div class="flex items-start gap-3">
+                                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-700 text-xs font-bold text-white">3</span>
+                                    <div>
+                                        <h3 class="text-base font-bold text-blue-950">Privacy Policy</h3>
+                                        <p class="mt-2 text-blue-900">
+                                            The submitted name, university identification, role, academic or department information, room, email address, schedule, and borrowing records will be processed for identity verification, equipment administration, communication, audit, and accountability purposes.
+                                        </p>
+                                        <p class="mt-2 text-blue-900">
+                                            Information will be handled according to the Data Privacy Act of 2012 and applicable university data-handling policies.
+                                        </p>
+                                    </div>
+                                </div>
+                            </section>
 
-                        <div class="space-y-3">
-                            <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 p-4">
-                                <input type="checkbox" name="terms_accepted" value="1" x-model="termsAccepted" class="mt-1 rounded border-gray-300 text-green-700 focus:ring-green-600">
-                                <span>I have read and accept the Terms and Conditions.</span>
-                            </label>
-                            <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 p-4">
-                                <input type="checkbox" name="privacy_accepted" value="1" x-model="privacyAccepted" class="mt-1 rounded border-gray-300 text-green-700 focus:ring-green-600">
-                                <span>I acknowledge the Privacy Policy and consent to processing of my information for this borrowing request.</span>
-                            </label>
-                            <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
-                                <input type="checkbox" name="liability_accepted" value="1" x-model="liabilityAccepted" class="mt-1 rounded border-amber-300 text-amber-700 focus:ring-amber-600">
-                                <span>I accept responsibility for the selected equipment and understand the possible repair or replacement obligation for loss or damage caused by misuse or negligence.</span>
-                            </label>
+                            <div class="space-y-3 border-t border-gray-200 pt-4 sm:pt-5">
+                                <p class="font-bold text-gray-900">Required confirmations</p>
+
+                                <label class="flex cursor-pointer items-start gap-3 rounded-2xl border border-gray-200 bg-white p-4 transition hover:border-green-300 hover:bg-green-50/40">
+                                    <input type="checkbox" name="terms_accepted" value="1" x-model="termsAccepted" class="mt-1 rounded border-gray-300 text-green-700 focus:ring-green-600">
+                                    <span>I have read and accept the Terms and Conditions.</span>
+                                </label>
+
+                                <label class="flex cursor-pointer items-start gap-3 rounded-2xl border border-gray-200 bg-white p-4 transition hover:border-blue-300 hover:bg-blue-50/40">
+                                    <input type="checkbox" name="privacy_accepted" value="1" x-model="privacyAccepted" class="mt-1 rounded border-gray-300 text-blue-700 focus:ring-blue-600">
+                                    <span>I acknowledge the Privacy Policy and consent to processing of my information for this borrowing request.</span>
+                                </label>
+
+                                <label class="flex cursor-pointer items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 transition hover:border-amber-300">
+                                    <input type="checkbox" name="liability_accepted" value="1" x-model="liabilityAccepted" class="mt-1 rounded border-amber-300 text-amber-700 focus:ring-amber-600">
+                                    <span>I accept responsibility for the selected equipment and understand the possible repair or replacement obligation for loss or damage caused by misuse or negligence.</span>
+                                </label>
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="flex flex-col-reverse gap-3 border-t border-gray-200 px-6 py-5 sm:flex-row sm:justify-end">
-                        <button type="button" x-on:click="agreementOpen = false" class="rounded-xl border border-gray-300 px-5 py-3 text-sm font-bold text-gray-700 hover:bg-gray-50">Review Request</button>
-                        <button type="submit" :disabled="!canSubmitAgreement" class="rounded-xl bg-green-700 px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-50">Submit Guest Borrowing Request</button>
+                        <div class="flex shrink-0 flex-col-reverse gap-3 border-t border-gray-200 bg-white px-4 py-4 sm:flex-row sm:justify-end sm:px-6 sm:py-5">
+                            <button
+                                type="button"
+                                x-on:click="agreementOpen = false"
+                                class="w-full rounded-xl border border-gray-300 px-5 py-3 text-sm font-bold text-gray-700 transition hover:bg-gray-50 sm:w-auto"
+                            >
+                                Review Request
+                            </button>
+
+                            <button
+                                type="submit"
+                                :disabled="!canSubmitAgreement"
+                                class="w-full rounded-xl bg-green-700 px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                            >
+                                Submit Guest Borrowing Request
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -344,6 +443,9 @@
                         return;
                     }
                     this.agreementOpen = true;
+                    this.$nextTick(() => {
+                        document.getElementById('agreementScrollArea')?.scrollTo({ top: 0 });
+                    });
                 },
 
                 async refreshInventory() {

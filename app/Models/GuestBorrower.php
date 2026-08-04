@@ -16,6 +16,7 @@ class GuestBorrower extends Model
         'full_name',
         'id_number',
         'email',
+        'room',
         'program',
         'year_level',
         'section',
