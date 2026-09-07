@@ -8,6 +8,7 @@ use App\Models\BorrowingItem;
 use App\Models\ItemUnit;
 use App\Models\MaintenanceRecord;
 use App\Notifications\BorrowingStatusNotification;
+use App\Services\EquipmentScheduleService;
 use App\Support\CampusAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -19,6 +20,11 @@ use Illuminate\View\View;
 
 class BorrowingController extends Controller
 {
+    public function __construct(
+        private EquipmentScheduleService $equipmentSchedule
+    ) {
+    }
+
     public function index(Request $request): View
     {
         $borrowings = $this->paginatedBorrowings($request);
@@ -64,7 +70,7 @@ class BorrowingController extends Controller
 
         $units = ItemUnit::query()
             ->where('campus', $campus)
-            ->borrowable()
+            ->reservable()
             ->with(['item.category'])
             ->orderBy('asset_number')
             ->get();
@@ -85,25 +91,21 @@ class BorrowingController extends Controller
 
             if (
                 $units->count() !== count($request->validated('item_unit_ids'))
-                || $units->contains(fn ($unit) => ! $unit->isBorrowable())
+                || $units->contains(fn ($unit) => ! $unit->isReservable())
             ) {
                 throw ValidationException::withMessages([
                     'item_unit_ids' => 'One or more selected units are no longer available. Refresh and try again.',
                 ]);
             }
 
-            $hasConflict = DB::table('borrowing_items')
-                ->join('borrowings', 'borrowings.id', '=', 'borrowing_items.borrowing_id')
-                ->whereIn('borrowing_items.item_unit_id', $units->pluck('id'))
-                ->where('borrowings.campus', $campus)
-                ->whereIn('borrowings.status', ['pending', 'approved', 'released', 'overdue'])
-                ->where('borrowings.borrow_at', '<', $request->validated('expected_return_at'))
-                ->where('borrowings.expected_return_at', '>', $request->validated('borrow_at'))
-                ->exists();
-
-            if ($hasConflict) {
+            if ($this->equipmentSchedule->conflictExists(
+                $units->pluck('id'),
+                $campus,
+                $request->validated('borrow_at'),
+                $request->validated('expected_return_at')
+            )) {
                 throw ValidationException::withMessages([
-                    'item_unit_ids' => 'One or more selected units already have an overlapping reservation.',
+                    'item_unit_ids' => 'One or more selected units are reserved for the selected date or have an overlapping borrowing schedule.',
                 ]);
             }
 
@@ -125,12 +127,6 @@ class BorrowingController extends Controller
                     'item_unit_id' => $unit->id,
                 ]);
 
-                $unit->update([
-                    'availability_status' => 'reserved',
-                    'updated_by' => $request->user()->id,
-                ]);
-
-                $unit->item->refreshQuantities();
             }
 
             return $borrowing;
@@ -369,6 +365,20 @@ class BorrowingController extends Controller
             'expected_return_at' => ['required', 'date', 'after:now'],
             'extension_reason' => ['required', 'string', 'max:1500'],
         ]);
+
+        $borrowing->load('items');
+
+        if ($this->equipmentSchedule->conflictExists(
+            $borrowing->items->pluck('item_unit_id'),
+            $borrowing->campus,
+            $borrowing->borrow_at,
+            $data['expected_return_at'],
+            $borrowing->id
+        )) {
+            throw ValidationException::withMessages([
+                'expected_return_at' => 'The requested extension conflicts with a reservation for one or more equipment units.',
+            ]);
+        }
 
         $borrowing->update([
             'expected_return_at' => $data['expected_return_at'],

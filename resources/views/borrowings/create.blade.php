@@ -211,10 +211,15 @@
                             class="mt-2 text-xs text-gray-500"
                             aria-live="polite"
                         >
-                            Showing all {{ $units->count() }} available units.
+                            Showing all {{ $units->count() }} reservable equipment units.
                         </p>
                     </div>
                 </div>
+            </div>
+
+            <div class="border-b border-gray-100 bg-violet-50 px-6 py-4 text-sm text-violet-900">
+                <strong>Borrowed equipment can still be reserved.</strong>
+                Choose a future schedule that does not overlap the current borrowing or another reservation. The server verifies the exact date and time before the request is saved.
             </div>
 
             <div
@@ -231,6 +236,7 @@
                                     $unit->item->display_name,
                                     $unit->asset_number,
                                     $unit->condition,
+                                    $unit->availability_status,
                                     $unit->campus,
                                     $location,
                                 ])
@@ -284,6 +290,20 @@
                             >
                                 {{ $unit->campus }} · {{ $location ?: 'Location not specified' }}
                             </span>
+
+                            <span class="mt-3 inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide {{ $unit->availability_status === 'borrowed' ? 'bg-violet-100 text-violet-700' : ($unit->availability_status === 'reserved' ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700') }}">
+                                {{ ucfirst(str_replace('_', ' ', $unit->availability_status)) }}
+                            </span>
+
+                            @if ($unit->availability_status === 'borrowed')
+                                <span class="mt-2 block text-xs leading-5 text-violet-700">
+                                    Currently borrowed. You may still reserve this unit for a future non-conflicting date and time.
+                                </span>
+                            @elseif ($unit->availability_status === 'reserved')
+                                <span class="mt-2 block text-xs leading-5 text-amber-700">
+                                    This unit has a reservation. Your selected schedule will be checked for conflicts when you submit.
+                                </span>
+                            @endif
                         </span>
 
                         <span

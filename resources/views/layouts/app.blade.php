@@ -30,6 +30,121 @@
         rel="stylesheet"
     >
 
+    {{-- Prevent Alpine-controlled UI from flashing open before JavaScript initializes. --}}
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
+
+
+
+    {{--
+        Self-contained notification Alpine factory.
+        This intentionally lives in the Blade layout so the notification dropdown
+        cannot break when a stale production Vite bundle is served temporarily.
+        The factory handles only this header widget and keeps the dropdown closed
+        until the bell is explicitly clicked.
+    --}}
+    <script>
+        window.UCCNotificationsDropdown = function (config) {
+            return {
+                open: false,
+                unreadCount: Number(config.initialUnreadCount || 0),
+                notifications: Array.isArray(config.initialNotifications)
+                    ? config.initialNotifications
+                    : [],
+                knownIds: Array.isArray(config.initialNotifications)
+                    ? config.initialNotifications.map(notification => notification.id)
+                    : [],
+                timer: null,
+                requestRunning: false,
+
+                start() {
+                    this.open = false;
+
+                    if (this.timer) {
+                        return;
+                    }
+
+                    this.timer = window.setInterval(() => {
+                        if (!document.hidden) {
+                            this.refresh();
+                        }
+                    }, 4000);
+
+                    window.setTimeout(() => this.refresh(), 1500);
+                },
+
+                async refresh() {
+                    if (this.requestRunning) {
+                        return;
+                    }
+
+                    this.requestRunning = true;
+
+                    try {
+                        const response = await fetch(config.feedUrl, {
+                            headers: {
+                                Accept: 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest',
+                            },
+                            cache: 'no-store',
+                            credentials: 'same-origin',
+                        });
+
+                        if (!response.ok) {
+                            return;
+                        }
+
+                        const data = await response.json();
+                        const incoming = Array.isArray(data.notifications)
+                            ? data.notifications
+                            : [];
+
+                        const newNotifications = incoming.filter(
+                            notification => !this.knownIds.includes(notification.id)
+                        );
+
+                        this.unreadCount = Number(data.unread_count || 0);
+                        this.notifications = incoming;
+                        this.knownIds = Array.from(new Set([
+                            ...incoming.map(notification => notification.id),
+                            ...this.knownIds,
+                        ])).slice(0, 100);
+
+                        if (newNotifications.length > 0) {
+                            window.UCCNotificationSound?.play?.();
+
+                            newNotifications
+                                .slice()
+                                .reverse()
+                                .forEach(notification => {
+                                    window.UCCNotifyToast?.(
+                                        notification.title,
+                                        notification.message,
+                                        notification.read_url
+                                    );
+                                });
+                        }
+                    } catch (error) {
+                        console.debug(
+                            'Real-time notifications are temporarily unavailable.',
+                            error
+                        );
+                    } finally {
+                        this.requestRunning = false;
+                    }
+                },
+
+                destroy() {
+                    if (this.timer) {
+                        window.clearInterval(this.timer);
+                        this.timer = null;
+                    }
+                },
+            };
+        };
+    </script>
+
     @vite([
         'resources/css/app.css',
         'resources/js/app.js'
@@ -356,15 +471,116 @@
                         </div>
 
                         @include('layouts.partials.topbar-borrowing-portal-qr')
-                        <div x-data="{ open: false }" @keydown.escape.window="open = false" @click.outside="open = false" class="relative">
-                            <button type="button" @click="open = !open" class="relative flex h-11 w-11 items-center justify-center rounded-full border border-gray-200 text-gray-600 transition hover:bg-gray-50" aria-label="Notifications" :aria-expanded="open">
-                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
-                                @if(auth()->user()->unreadNotifications()->count())<span class="absolute -right-1 -top-1 min-w-[18px] rounded-full bg-red-600 px-1 text-center text-[10px] font-bold leading-[18px] text-white">{{ min(auth()->user()->unreadNotifications()->count(), 99) }}</span>@endif
+                        @php
+                            $headerNotifications = auth()->user()
+                                ->notifications()
+                                ->latest()
+                                ->limit(8)
+                                ->get();
+
+                            $headerNotificationPayload = $headerNotifications
+                                ->map(fn ($notification) => [
+                                    'id' => $notification->id,
+                                    'title' => $notification->data['title'] ?? 'System notification',
+                                    'message' => $notification->data['message'] ?? 'You have a new update.',
+                                    'read_at' => $notification->read_at?->toIso8601String(),
+                                    'created_at_human' => $notification->created_at?->diffForHumans(),
+                                    'read_url' => route('notifications.read', $notification->id),
+                                ])
+                                ->values();
+                        @endphp
+
+                        <div
+                            x-data="window.UCCNotificationsDropdown({
+                                feedUrl: @js(route('notifications.feed')),
+                                initialUnreadCount: {{ auth()->user()->unreadNotifications()->count() }},
+                                initialNotifications: @js($headerNotificationPayload),
+                            })"
+                            x-init="start()"
+                            @keydown.escape.window="open = false"
+                            @click.outside="open = false"
+                            class="relative"
+                        >
+                            <button
+                                type="button"
+                                @click.stop="open = !open; if (open) refresh()"
+                                class="relative flex h-11 w-11 items-center justify-center rounded-full border border-gray-200 text-gray-600 transition hover:bg-gray-50"
+                                aria-label="Notifications"
+                                :aria-expanded="open"
+                            >
+                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                                </svg>
+
+                                <span
+                                    x-cloak
+                                    x-show="unreadCount > 0"
+                                    x-text="Math.min(unreadCount, 99)"
+                                    class="absolute -right-1 -top-1 min-w-[18px] rounded-full bg-red-600 px-1 text-center text-[10px] font-bold leading-[18px] text-white"
+                                ></span>
                             </button>
-                            <div x-cloak x-show="open" x-transition.origin.top.right class="absolute right-0 z-50 mt-3 w-[min(92vw,390px)] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl">
-                                <div class="flex items-center justify-between border-b px-4 py-3"><div><h3 class="font-bold text-gray-900">Notifications</h3><p class="text-xs text-gray-500">Latest updates from your account</p></div>@if(auth()->user()->unreadNotifications()->count())<form method="POST" action="{{ route('notifications.read-all') }}">@csrf @method('PATCH')<button class="text-xs font-semibold text-green-700 hover:underline">Mark all read</button></form>@endif</div>
-                                <div class="max-h-[420px] overflow-y-auto">@forelse(auth()->user()->notifications()->latest()->limit(8)->get() as $notification)<a href="{{ route('notifications.read', $notification->id) }}" class="block border-b border-gray-100 px-4 py-3 transition hover:bg-green-50 {{ is_null($notification->read_at) ? 'bg-green-50/60' : '' }}"><div class="flex gap-3"><span class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full {{ is_null($notification->read_at) ? 'bg-green-600' : 'bg-gray-300' }}"></span><div class="min-w-0"><p class="text-sm font-semibold text-gray-900">{{ $notification->data['title'] ?? 'System notification' }}</p><p class="mt-0.5 text-sm text-gray-600">{{ $notification->data['message'] ?? 'You have a new update.' }}</p><p class="mt-1 text-xs text-gray-400">{{ $notification->created_at->diffForHumans() }}</p></div></div></a>@empty<div class="px-6 py-10 text-center text-sm text-gray-500">You have no notifications yet.</div>@endforelse</div>
-                                <a href="{{ route('notifications.index') }}" class="block bg-gray-50 px-4 py-3 text-center text-sm font-semibold text-green-700 hover:bg-green-50">View all notifications</a>
+
+                            <div
+                                x-cloak
+                                x-show="open"
+                                x-transition.origin.top.right
+                                class="absolute right-0 z-50 mt-3 w-[min(92vw,390px)] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
+                                style="display: none;"
+                            >
+                                <div class="flex items-center justify-between border-b px-4 py-3">
+                                    <div>
+                                        <h3 class="font-bold text-gray-900">Notifications</h3>
+                                        <p class="text-xs text-gray-500">Live updates from UCC LabTech</p>
+                                    </div>
+
+                                    <form
+                                        x-show="unreadCount > 0"
+                                        method="POST"
+                                        action="{{ route('notifications.read-all') }}"
+                                    >
+                                        @csrf
+                                        @method('PATCH')
+                                        <button class="text-xs font-semibold text-green-700 hover:underline">
+                                            Mark all read
+                                        </button>
+                                    </form>
+                                </div>
+
+                                <div class="max-h-[420px] overflow-y-auto">
+                                    <template x-for="notification in notifications" :key="notification.id">
+                                        <a
+                                            :href="notification.read_url"
+                                            class="block border-b border-gray-100 px-4 py-3 transition hover:bg-green-50"
+                                            :class="notification.read_at ? '' : 'bg-green-50/60'"
+                                        >
+                                            <div class="flex gap-3">
+                                                <span
+                                                    class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
+                                                    :class="notification.read_at ? 'bg-gray-300' : 'bg-green-600'"
+                                                ></span>
+                                                <div class="min-w-0">
+                                                    <p class="text-sm font-semibold text-gray-900" x-text="notification.title"></p>
+                                                    <p class="mt-0.5 text-sm text-gray-600" x-text="notification.message"></p>
+                                                    <p class="mt-1 text-xs text-gray-400" x-text="notification.created_at_human"></p>
+                                                </div>
+                                            </div>
+                                        </a>
+                                    </template>
+
+                                    <div
+                                        x-show="notifications.length === 0"
+                                        class="px-6 py-10 text-center text-sm text-gray-500"
+                                    >
+                                        You have no notifications yet.
+                                    </div>
+                                </div>
+
+                                <a
+                                    href="{{ route('notifications.index') }}"
+                                    class="block bg-gray-50 px-4 py-3 text-center text-sm font-semibold text-green-700 hover:bg-green-50"
+                                >
+                                    View all notifications
+                                </a>
                             </div>
                         </div>
 

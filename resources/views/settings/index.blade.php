@@ -8,7 +8,28 @@
         </div>
     </x-slot>
 
-    <div x-data="{ tab: 'general' }" class="mx-auto max-w-6xl space-y-6">
+    <div
+        x-data="{
+            tab: 'general',
+            departments: @js(array_values((array) old('staff_departments', $staffDepartments ?? ['LabTech', 'CSD']))),
+            newDepartment: '',
+            addDepartment() {
+                const value = this.newDepartment.trim();
+                if (! value) return;
+                const exists = this.departments.some(item => item.toLowerCase() === value.toLowerCase());
+                if (! exists) this.departments.push(value);
+                this.newDepartment = '';
+            },
+            removeDepartment(index) {
+                if (this.departments.length <= 1) {
+                    alert('At least one staff department is required.');
+                    return;
+                }
+                this.departments.splice(index, 1);
+            }
+        }"
+        class="mx-auto max-w-6xl space-y-6"
+    >
         @if (session('success'))
             <div class="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
                 {{ session('success') }}
@@ -23,12 +44,21 @@
 
         <div class="overflow-x-auto rounded-2xl border border-gray-200 bg-white p-2 shadow-sm">
             <div class="flex min-w-max gap-2">
-                @foreach ([
-                    'general' => 'General',
-                    'borrowing' => 'Borrowing',
-                    'notifications' => 'Notifications',
-                    'system' => 'System Information',
-                ] as $key => $label)
+                @php
+                    $settingTabs = [
+                        'general' => 'General',
+                        'borrowing' => 'Borrowing',
+                        'notifications' => 'Notifications',
+                    ];
+
+                    if (auth()->user()->hasRole('super_admin')) {
+                        $settingTabs['departments'] = 'Departments';
+                    }
+
+                    $settingTabs['system'] = 'System Information';
+                @endphp
+
+                @foreach ($settingTabs as $key => $label)
                     <button
                         type="button"
                         @click="tab = '{{ $key }}'"
@@ -172,6 +202,67 @@
                     @endforeach
                 </div>
             </section>
+
+            @if (auth()->user()->hasRole('super_admin'))
+                <section x-show="tab === 'departments'" x-cloak class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                            <h2 class="text-lg font-bold text-gray-900">Staff Departments</h2>
+                            <p class="mt-1 max-w-2xl text-sm text-gray-500">
+                                Manage the department choices available on the private staff registration page.
+                                LabTech and CSD are included by default.
+                            </p>
+                        </div>
+                        <span class="inline-flex w-fit rounded-full bg-violet-50 px-3 py-1 text-xs font-bold text-violet-700">
+                            Super Admin Only
+                        </span>
+                    </div>
+
+                    <div class="mt-6 space-y-3">
+                        <template x-for="(department, index) in departments" :key="index">
+                            <div class="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
+                                <input
+                                    type="text"
+                                    name="staff_departments[]"
+                                    x-model="departments[index]"
+                                    required
+                                    maxlength="120"
+                                    class="min-w-0 flex-1 rounded-xl border-gray-300 bg-white focus:border-green-600 focus:ring-green-600"
+                                >
+                                <button
+                                    type="button"
+                                    @click="removeDepartment(index)"
+                                    class="rounded-xl border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50"
+                                >
+                                    Remove
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div class="mt-5 flex flex-col gap-3 sm:flex-row">
+                        <input
+                            type="text"
+                            x-model="newDepartment"
+                            @keydown.enter.prevent="addDepartment()"
+                            maxlength="120"
+                            placeholder="Example: MIS, Registrar, Library"
+                            class="flex-1 rounded-xl border-gray-300 focus:border-green-600 focus:ring-green-600"
+                        >
+                        <button
+                            type="button"
+                            @click="addDepartment()"
+                            class="rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-black"
+                        >
+                            Add Department
+                        </button>
+                    </div>
+
+                    <div class="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-800">
+                        Staff registrants can only choose one of the departments saved here.
+                    </div>
+                </section>
+            @endif
 
             <section x-show="tab === 'system'" x-cloak class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
                 <div>

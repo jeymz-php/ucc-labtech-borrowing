@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -30,12 +31,15 @@ class StaffRegistrationController extends Controller
         return view('staff-registration.create', [
             'registrationToken' => $token,
             'campuses' => self::CAMPUSES,
+            'departments' => $this->staffDepartments(),
         ]);
     }
 
     public function store(Request $request, string $token): RedirectResponse
     {
         $this->assertValidToken($token);
+
+        $departments = $this->staffDepartments();
 
         $data = $request->validate([
             'id_number' => ['required', 'string', 'min:4', 'max:30', 'unique:users,id_number'],
@@ -45,7 +49,7 @@ class StaffRegistrationController extends Controller
             'suffix' => ['nullable', 'string', 'max:20'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'campus' => ['required', Rule::in(self::CAMPUSES)],
-            'department' => ['required', 'string', 'max:180'],
+            'department' => ['required', 'string', 'max:180', Rule::in($departments)],
             'contact_number' => ['nullable', 'string', 'max:30'],
             'password' => ['required', 'confirmed', Password::min(8)->letters()->mixedCase()->numbers()],
         ]);
@@ -142,6 +146,21 @@ class StaffRegistrationController extends Controller
         $token = trim((string) config('staff_registration.token'));
 
         return strlen($token) >= 32 ? $token : null;
+    }
+
+
+    private function staffDepartments(): array
+    {
+        $departments = Setting::getValue('staff_departments', ['LabTech', 'CSD']);
+
+        $departments = collect(is_array($departments) ? $departments : [])
+            ->map(fn ($department) => trim((string) $department))
+            ->filter()
+            ->unique(fn ($department) => mb_strtolower($department))
+            ->values()
+            ->all();
+
+        return $departments === [] ? ['LabTech', 'CSD'] : $departments;
     }
 
     private function nullableTrim(?string $value): ?string

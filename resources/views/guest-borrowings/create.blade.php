@@ -63,22 +63,8 @@
 
             <section x-show="step === 1" x-transition class="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
                 <div>
-                    <h2 class="text-xl font-bold text-gray-900">Select your role</h2>
-                    <p class="mt-1 text-sm text-gray-500">The required fields adjust automatically based on the selected borrower role.</p>
-                </div>
-
-                <div class="mt-6 grid gap-3 sm:grid-cols-3">
-                    @foreach ([
-                        'student' => ['Student', 'Program, year, section, and Student ID'],
-                        'professor' => ['Professor', 'Department information'],
-                        'faculty_staff' => ['Faculty / Staff', 'Staff identification information'],
-                    ] as $value => [$label, $description])
-                        <label class="cursor-pointer rounded-2xl border p-4 transition" :class="role === '{{ $value }}' ? 'border-green-600 bg-green-50 ring-1 ring-green-600' : 'border-gray-200 hover:border-green-300'">
-                            <input type="radio" name="role" value="{{ $value }}" x-model="role" class="sr-only" required>
-                            <span class="block font-bold text-gray-900">{{ $label }}</span>
-                            <span class="mt-1 block text-xs leading-5 text-gray-500">{{ $description }}</span>
-                        </label>
-                    @endforeach
+                    <h2 class="text-xl font-bold text-gray-900">Select your designated campus</h2>
+                    <p class="mt-1 text-sm text-gray-500">Choose your campus first. The page will reload automatically and show only equipment assigned to that campus.</p>
                 </div>
 
                 <div class="mt-6 rounded-2xl border border-green-200 bg-green-50 p-4 sm:p-5">
@@ -91,6 +77,9 @@
                         required
                         class="mt-2 w-full rounded-xl border-green-300 bg-white focus:border-green-600 focus:ring-green-600"
                     >
+                        <option value="" @selected(! $selectedCampus) disabled>
+                            Select your designated campus
+                        </option>
                         @foreach ($campuses as $campusOption)
                             <option value="{{ $campusOption }}" @selected($selectedCampus === $campusOption)>
                                 {{ $campusOption }}
@@ -98,9 +87,29 @@
                         @endforeach
                     </select>
                     <p class="mt-2 text-xs leading-5 text-green-800">
-                        Only equipment assigned to the selected campus will be displayed and processed.
+                        Selecting a campus automatically reloads this page and keeps your chosen campus selected.
                     </p>
                 </div>
+
+                @if ($selectedCampus)
+                    <div class="mt-8 border-t border-gray-100 pt-8">
+                        <h2 class="text-xl font-bold text-gray-900">Select your role</h2>
+                        <p class="mt-1 text-sm text-gray-500">The required fields adjust automatically based on the selected borrower role.</p>
+                    </div>
+
+                    <div class="mt-6 grid gap-3 sm:grid-cols-3">
+                        @foreach ([
+                            'student' => ['Student', 'Program, year, section, and Student ID'],
+                            'professor' => ['Professor', 'Department information'],
+                            'faculty_staff' => ['Faculty / Staff', 'Staff identification information'],
+                        ] as $value => [$label, $description])
+                            <label class="cursor-pointer rounded-2xl border p-4 transition" :class="role === '{{ $value }}' ? 'border-green-600 bg-green-50 ring-1 ring-green-600' : 'border-gray-200 hover:border-green-300'">
+                                <input type="radio" name="role" value="{{ $value }}" x-model="role" class="sr-only" required>
+                                <span class="block font-bold text-gray-900">{{ $label }}</span>
+                                <span class="mt-1 block text-xs leading-5 text-gray-500">{{ $description }}</span>
+                            </label>
+                        @endforeach
+                    </div>
 
                 <div class="mt-7 grid gap-5 sm:grid-cols-2">
                     <div class="sm:col-span-2">
@@ -171,6 +180,12 @@
                         Continue to Borrowing
                     </button>
                 </div>
+                @else
+                    <div class="mt-6 rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-5 py-8 text-center">
+                        <p class="text-sm font-semibold text-gray-700">Select your designated campus above to continue.</p>
+                        <p class="mt-1 text-xs text-gray-500">Borrower information and campus equipment will appear after the page reloads.</p>
+                    </div>
+                @endif
             </section>
 
             <section x-show="step === 2" x-cloak x-transition class="space-y-6">
@@ -209,7 +224,7 @@
                         <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                             <div>
                                 <h2 class="text-xl font-bold text-gray-900">Select Equipment Units</h2>
-                                <p class="mt-1 text-sm text-gray-500">Showing equipment assigned to <strong>{{ $selectedCampus }}</strong>. All statuses remain visible, but only Available units can be selected.</p>
+                                <p class="mt-1 text-sm text-gray-500">Showing equipment assigned to <strong>{{ $selectedCampus }}</strong>. Availability is checked against your selected borrowing schedule, so future reservations remain visible and may still be borrowable today.</p>
                             </div>
                             <div class="w-full lg:max-w-md">
                                 <label for="guestEquipmentSearch" class="sr-only">Search equipment</label>
@@ -222,18 +237,60 @@
                         </div>
                     </div>
 
+                    <div class="border-b border-gray-100 bg-gray-50 px-6 py-5 sm:px-8">
+                        <div class="grid gap-3 md:grid-cols-3">
+                            <div class="rounded-2xl border border-green-200 bg-green-50 p-4">
+                                <div class="flex items-center gap-2">
+                                    <span class="h-2.5 w-2.5 rounded-full bg-green-600"></span>
+                                    <p class="text-sm font-bold text-green-900">Available</p>
+                                </div>
+                                <p class="mt-2 text-xs leading-5 text-green-800">
+                                    The unit is physically available and has no reservation conflict with your selected schedule.
+                                </p>
+                            </div>
+
+                            <div class="rounded-2xl border border-violet-200 bg-violet-50 p-4">
+                                <div class="flex items-center gap-2">
+                                    <span class="h-2.5 w-2.5 rounded-full bg-violet-600"></span>
+                                    <p class="text-sm font-bold text-violet-900">Borrowed</p>
+                                </div>
+                                <p class="mt-2 text-xs leading-5 text-violet-800">
+                                    The unit is currently borrowed, but it may still be reserved for a future date and time after the current borrowing period. The system will block any date/time conflict automatically.
+                                </p>
+                            </div>
+
+                            <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                                <div class="flex items-center gap-2">
+                                    <span class="h-2.5 w-2.5 rounded-full bg-amber-500"></span>
+                                    <p class="text-sm font-bold text-amber-900">Reserved</p>
+                                </div>
+                                <p class="mt-2 text-xs leading-5 text-amber-800">
+                                    A reservation exists on the selected date or overlaps your schedule. Future reservations that do not overlap are shown as a note and the unit can still be selected.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="grid gap-4 p-6 sm:grid-cols-2 xl:grid-cols-3 sm:p-8">
                         @forelse ($units as $unit)
                             @php
-                                $selectable = $unit->isBorrowable();
+                                $state = $unitStates[$unit->id] ?? [
+                                    'selectable' => $unit->isReservable(),
+                                    'display_status' => $unit->availability_status,
+                                    'reservation_note' => null,
+                                ];
+                                $selectable = (bool) ($state['selectable'] ?? false);
+                                $displayStatus = $state['display_status'] ?? $unit->availability_status;
+                                $reservationNote = $state['reservation_note'] ?? null;
                                 $location = $unit->location ?: $unit->item->location;
                                 $searchText = strtolower(implode(' ', array_filter([
                                     $unit->item->display_name,
                                     $unit->asset_number,
                                     $unit->condition,
-                                    $unit->availability_status,
+                                    $displayStatus,
                                     $unit->campus,
                                     $location,
+                                    $reservationNote,
                                 ])));
                             @endphp
                             <label
@@ -257,8 +314,14 @@
                                     <span class="block font-bold text-gray-900">{{ $unit->item->display_name }}</span>
                                     <span class="mt-1 block text-xs text-gray-500">{{ $unit->asset_number ?: 'No asset number' }} · {{ ucfirst(str_replace('_', ' ', $unit->condition)) }}</span>
                                     <span class="mt-1 block text-xs text-gray-400">{{ $unit->campus }} · {{ $location ?: 'Location not specified' }}</span>
-                                    <span data-unit-status="{{ $unit->id }}" class="mt-3 inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide {{ $unit->availability_status === 'available' ? 'bg-green-100 text-green-700' : ($unit->availability_status === 'borrowed' ? 'bg-violet-100 text-violet-700' : ($unit->availability_status === 'reserved' ? 'bg-amber-100 text-amber-700' : 'bg-gray-200 text-gray-700')) }}">
-                                        {{ ucfirst(str_replace('_', ' ', $unit->availability_status)) }}
+                                    <span data-unit-status="{{ $unit->id }}" class="mt-3 inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide {{ $displayStatus === 'available' ? 'bg-green-100 text-green-700' : ($displayStatus === 'borrowed' ? 'bg-violet-100 text-violet-700' : ($displayStatus === 'reserved' ? 'bg-amber-100 text-amber-700' : 'bg-gray-200 text-gray-700')) }}">
+                                        {{ ucfirst(str_replace('_', ' ', $displayStatus)) }}
+                                    </span>
+                                    <span
+                                        data-unit-note="{{ $unit->id }}"
+                                        class="mt-2 block text-xs leading-5 {{ $reservationNote ? ($displayStatus === 'borrowed' ? 'text-violet-700' : 'text-amber-700') : 'text-gray-400' }}"
+                                    >
+                                        {{ $reservationNote ?: 'No active reservation affecting the selected schedule.' }}
                                     </span>
                                 </span>
                             </label>
@@ -417,11 +480,15 @@
                 termsAccepted: {{ old('terms_accepted') ? 'true' : 'false' }},
                 privacyAccepted: {{ old('privacy_accepted') ? 'true' : 'false' }},
                 liabilityAccepted: {{ old('liability_accepted') ? 'true' : 'false' }},
-                liveUnits: {},
+                liveUnits: @js($unitStates),
                 pollTimer: null,
                 inventoryRequestRunning: false,
 
                 changeCampus() {
+                    if (!this.campus) {
+                        return;
+                    }
+
                     const target = new URL(@json(route('guest-borrowings.create')), window.location.origin);
                     target.searchParams.set('campus', this.campus);
                     window.UCCLoader?.show('Loading equipment for ' + this.campus + '...', 'Switching campus');
@@ -458,7 +525,13 @@
                         }
                     };
 
-                    borrowInput?.addEventListener('change', updateMinimums);
+                    const scheduleChanged = () => {
+                        updateMinimums();
+                        this.refreshInventory();
+                    };
+
+                    borrowInput?.addEventListener('change', scheduleChanged);
+                    returnInput?.addEventListener('change', scheduleChanged);
                     updateMinimums();
                     window.setInterval(updateMinimums, 60000);
                 },
@@ -505,7 +578,7 @@
                     }
                     const selected = form.querySelectorAll('input[name="item_unit_ids[]"]:checked:not(:disabled)');
                     if (selected.length === 0) {
-                        alert('Select at least one available equipment unit.');
+                        alert('Select at least one reservable equipment unit.');
                         return;
                     }
                     this.agreementOpen = true;
@@ -515,7 +588,7 @@
                 },
 
                 async refreshInventory() {
-                    if (this.inventoryRequestRunning) {
+                    if (!this.campus || this.inventoryRequestRunning) {
                         return;
                     }
 
@@ -524,6 +597,17 @@
                     try {
                         const inventoryUrl = new URL(@json(route('guest-borrowings.inventory')), window.location.origin);
                         inventoryUrl.searchParams.set('campus', this.campus);
+
+                        const borrowAt = document.getElementById('borrow_at')?.value;
+                        const expectedReturnAt = document.getElementById('expected_return_at')?.value;
+
+                        if (borrowAt) {
+                            inventoryUrl.searchParams.set('borrow_at', borrowAt);
+                        }
+
+                        if (borrowAt && expectedReturnAt && expectedReturnAt > borrowAt) {
+                            inventoryUrl.searchParams.set('expected_return_at', expectedReturnAt);
+                        }
 
                         const response = await fetch(inventoryUrl.toString(), {
                             headers: { 'Accept': 'application/json' },
@@ -544,18 +628,28 @@
 
                         data.units.forEach(unit => {
                             const badge = document.querySelector(`[data-unit-status="${unit.id}"]`);
+                            const note = document.querySelector(`[data-unit-note="${unit.id}"]`);
                             const checkbox = document.querySelector(`[data-unit-checkbox="${unit.id}"]`);
+                            const displayStatus = unit.display_status || unit.availability_status;
 
                             if (badge) {
-                                badge.textContent = unit.availability_status.replaceAll('_', ' ');
+                                badge.textContent = displayStatus.replaceAll('_', ' ');
                                 badge.className = 'mt-3 inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ' +
-                                    (unit.availability_status === 'available'
+                                    (displayStatus === 'available'
                                         ? 'bg-green-100 text-green-700'
-                                        : unit.availability_status === 'borrowed'
+                                        : displayStatus === 'borrowed'
                                             ? 'bg-violet-100 text-violet-700'
-                                            : unit.availability_status === 'reserved'
+                                            : displayStatus === 'reserved'
                                                 ? 'bg-amber-100 text-amber-700'
                                                 : 'bg-gray-200 text-gray-700');
+                            }
+
+                            if (note) {
+                                note.textContent = unit.reservation_note || 'No active reservation affecting the selected schedule.';
+                                note.className = 'mt-2 block text-xs leading-5 ' +
+                                    (unit.reservation_note
+                                        ? (displayStatus === 'borrowed' ? 'text-violet-700' : 'text-amber-700')
+                                        : 'text-gray-400');
                             }
 
                             if (checkbox) {
@@ -574,7 +668,7 @@
                 },
 
                 startInventoryPolling() {
-                    if (this.pollTimer) {
+                    if (!this.campus || this.pollTimer) {
                         return;
                     }
 

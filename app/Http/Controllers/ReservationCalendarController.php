@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Models\Item;
 use App\Models\ItemUnit;
 use App\Notifications\BorrowingStatusNotification;
+use App\Services\EquipmentScheduleService;
 use App\Support\CampusAccess;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -19,6 +20,11 @@ use Symfony\Component\HttpFoundation\Response;
 
 class ReservationCalendarController extends Controller
 {
+    public function __construct(
+        private EquipmentScheduleService $equipmentSchedule
+    ) {
+    }
+
     public function index(Request $request): View
     {
         abort_unless($request->user()->can('view reservation calendar'), 403);
@@ -91,29 +97,41 @@ class ReservationCalendarController extends Controller
             'item_id' => ['nullable', 'integer', 'exists:items,id'],
         ]);
 
-        $conflictedIds = DB::table('borrowing_items')
-            ->join('borrowings', 'borrowings.id', '=', 'borrowing_items.borrowing_id')
-            ->whereIn('borrowings.status', ['pending','approved','released','overdue'])
-            ->where('borrowings.borrow_at', '<', $data['expected_return_at'])
-            ->where('borrowings.expected_return_at', '>', $data['borrow_at'])
-            ->pluck('borrowing_items.item_unit_id');
-
         $units = ItemUnit::query()
             ->visibleTo($request->user())
             ->with('item:id,name')
             ->when($request->filled('item_id'), fn ($q) => $q->where('item_id', $data['item_id']))
-            ->whereNotIn('id', $conflictedIds)
-            ->whereNotIn('availability_status', ['maintenance','lost','archived'])
+            ->whereIn('availability_status', ['available', 'reserved'])
+            ->whereIn('condition', ['excellent', 'good', 'fair'])
             ->orderBy('asset_number')
-            ->get(['id','item_id','asset_number','availability_status']);
+            ->get(['id','item_id','campus','asset_number','availability_status','condition']);
+
+        $borrowAt = \Carbon\Carbon::parse($data['borrow_at']);
+        $expectedReturnAt = \Carbon\Carbon::parse($data['expected_return_at']);
+        $states = collect();
+
+        foreach ($units->groupBy('campus') as $campus => $campusUnits) {
+            $states = $states->merge(
+                $this->equipmentSchedule->states(
+                    $campusUnits,
+                    $campus,
+                    $borrowAt,
+                    $expectedReturnAt
+                )
+            );
+        }
+
+        $availableUnits = $units->filter(
+            fn ($unit) => (bool) ($states->get($unit->id)['selectable'] ?? false)
+        )->values();
 
         return response()->json([
-            'count' => $units->count(),
-            'units' => $units->map(fn ($unit) => [
+            'count' => $availableUnits->count(),
+            'units' => $availableUnits->map(fn ($unit) => [
                 'id' => $unit->id,
                 'asset_number' => $unit->asset_number,
                 'item' => $unit->item?->name,
-                'current_status' => $unit->availability_status,
+                'current_status' => 'available',
             ])->values(),
         ]);
     }
@@ -133,18 +151,16 @@ class ReservationCalendarController extends Controller
         $borrowing->load('items');
         $unitIds = $borrowing->items->pluck('item_unit_id');
 
-        $conflict = DB::table('borrowing_items')
-            ->join('borrowings', 'borrowings.id', '=', 'borrowing_items.borrowing_id')
-            ->where('borrowings.id', '!=', $borrowing->id)
-            ->where('borrowings.campus', $borrowing->campus)
-            ->whereIn('borrowing_items.item_unit_id', $unitIds)
-            ->whereIn('borrowings.status', ['pending','approved','released','overdue'])
-            ->where('borrowings.borrow_at', '<', $data['expected_return_at'])
-            ->where('borrowings.expected_return_at', '>', $data['borrow_at'])
-            ->exists();
-
-        if ($conflict) {
-            throw ValidationException::withMessages(['borrow_at' => 'The new schedule conflicts with another active reservation for one or more selected units.']);
+        if ($this->equipmentSchedule->conflictExists(
+            $unitIds,
+            $borrowing->campus,
+            $data['borrow_at'],
+            $data['expected_return_at'],
+            $borrowing->id
+        )) {
+            throw ValidationException::withMessages([
+                'borrow_at' => 'The new schedule conflicts with another reservation on the selected date for one or more selected units.',
+            ]);
         }
 
         $borrowing->update([

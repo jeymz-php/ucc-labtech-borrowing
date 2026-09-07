@@ -87,6 +87,11 @@ class SettingController extends Controller
             'type' => 'boolean',
             'value' => true,
         ],
+        'staff_departments' => [
+            'group' => 'staff',
+            'type' => 'json',
+            'value' => ['LabTech', 'CSD'],
+        ],
     ];
 
     public function index(Request $request): View
@@ -109,6 +114,7 @@ class SettingController extends Controller
                 'Y-m-d H:i' => now()->format('Y-m-d H:i'),
                 'm/d/Y h:i A' => now()->format('m/d/Y h:i A'),
             ],
+            'staffDepartments' => Setting::getValue('staff_departments', ['LabTech', 'CSD']),
             'systemInformation' => [
                 'Laravel' => app()->version(),
                 'PHP' => PHP_VERSION,
@@ -138,6 +144,12 @@ class SettingController extends Controller
             'email_notifications' => ['nullable', 'boolean'],
             'borrower_notifications' => ['nullable', 'boolean'],
             'maintenance_notifications' => ['nullable', 'boolean'],
+            'staff_departments' => $request->user()->hasRole('super_admin')
+                ? ['required', 'array', 'min:1', 'max:50']
+                : ['nullable'],
+            'staff_departments.*' => $request->user()->hasRole('super_admin')
+                ? ['required', 'string', 'max:120']
+                : ['nullable'],
         ]);
 
         $booleanKeys = [
@@ -150,6 +162,10 @@ class SettingController extends Controller
 
         DB::transaction(function () use ($request, $validated, $booleanKeys) {
             foreach (self::DEFAULTS as $key => $definition) {
+                if ($key === 'staff_departments') {
+                    continue;
+                }
+
                 $value = in_array($key, $booleanKeys, true)
                     ? $request->boolean($key)
                     : ($validated[$key] ?? null);
@@ -159,6 +175,26 @@ class SettingController extends Controller
                     $value,
                     $definition['group'],
                     $definition['type']
+                );
+            }
+
+            if ($request->user()->hasRole('super_admin')) {
+                $departments = collect($validated['staff_departments'] ?? [])
+                    ->map(fn ($department) => trim((string) $department))
+                    ->filter()
+                    ->unique(fn ($department) => mb_strtolower($department))
+                    ->values()
+                    ->all();
+
+                if ($departments === []) {
+                    $departments = ['LabTech', 'CSD'];
+                }
+
+                Setting::setValue(
+                    'staff_departments',
+                    $departments,
+                    'staff',
+                    'json'
                 );
             }
         });

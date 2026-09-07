@@ -89,6 +89,28 @@ class ItemUnit extends Model
         );
     }
 
+
+    public function scopeReservable(Builder $query): Builder
+    {
+        return $query
+            ->whereIn('availability_status', ['available', 'reserved'])
+            ->whereIn('condition', [
+                'excellent',
+                'good',
+                'fair',
+            ]);
+    }
+
+    public function isReservable(): bool
+    {
+        return in_array($this->availability_status, ['available', 'reserved'], true)
+            && in_array($this->condition, [
+                'excellent',
+                'good',
+                'fair',
+            ], true);
+    }
+
     public function scopeBorrowable(Builder $query): Builder
     {
         return $query

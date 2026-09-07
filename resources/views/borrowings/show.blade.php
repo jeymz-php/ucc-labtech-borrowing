@@ -43,6 +43,23 @@
             </div>
         @endif
 
+        @if ($borrowing->is_guest && $borrowing->returned_to_office_at && in_array($borrowing->status, ['released', 'overdue'], true))
+            <div class="rounded-2xl border border-amber-300 bg-amber-50 p-5 text-amber-950 shadow-sm">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <p class="font-bold">Guest marked the equipment as returned to the office.</p>
+                        <p class="mt-1 text-sm leading-6 text-amber-800">
+                            Reported on {{ $borrowing->returned_to_office_at->format('M d, Y h:i A') }}.
+                            The borrowing is still {{ ucfirst($borrowing->status) }} until an Admin/Super Admin inspects the units and completes the official return below.
+                        </p>
+                    </div>
+                    <span class="inline-flex w-fit rounded-full bg-amber-200 px-3 py-1 text-xs font-bold uppercase text-amber-900">
+                        Awaiting Staff Verification
+                    </span>
+                </div>
+            </div>
+        @endif
+
         <div class="grid gap-6 xl:grid-cols-3">
             {{-- Request details --}}
             <section class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm xl:col-span-2">
@@ -577,7 +594,7 @@
                 Transaction Timeline
             </h2>
 
-            <div class="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div class="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
                 <div class="rounded-xl bg-gray-50 p-4">
                     <div class="text-xs font-semibold uppercase text-gray-400">
                         Requested
@@ -607,6 +624,18 @@
                         {{ $borrowing->released_at?->format('M d, Y h:i A') ?? '—' }}
                     </div>
                 </div>
+
+                @if ($borrowing->is_guest)
+                    <div class="rounded-xl bg-amber-50 p-4">
+                        <div class="text-xs font-semibold uppercase text-amber-600">
+                            Returned to Office
+                        </div>
+
+                        <div class="mt-1 text-sm font-semibold text-amber-950">
+                            {{ $borrowing->returned_to_office_at?->format('M d, Y h:i A') ?? '—' }}
+                        </div>
+                    </div>
+                @endif
 
                 <div class="rounded-xl bg-gray-50 p-4">
                     <div class="text-xs font-semibold uppercase text-gray-400">

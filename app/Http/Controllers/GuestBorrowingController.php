@@ -7,7 +7,9 @@ use App\Models\Borrowing;
 use App\Models\BorrowingItem;
 use App\Models\GuestBorrower;
 use App\Models\ItemUnit;
+use App\Services\EquipmentScheduleService;
 use App\Support\CampusAccess;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,6 +23,11 @@ use Symfony\Component\HttpFoundation\Response;
 
 class GuestBorrowingController extends Controller
 {
+    public function __construct(
+        private EquipmentScheduleService $equipmentSchedule
+    ) {
+    }
+
     public function create(Request $request): View
     {
         $campus = old('campus', $request->query('campus'));
@@ -29,10 +36,16 @@ class GuestBorrowingController extends Controller
             $campus = CampusAccess::default();
         }
 
+        $units = $campus ? $this->units($campus) : collect();
+        $unitStates = $campus
+            ? $this->equipmentSchedule->states($units, $campus)
+            : collect();
+
         return view('guest-borrowings.create', [
             'campuses' => CampusAccess::options(),
             'selectedCampus' => $campus,
-            'units' => $campus ? $this->units($campus) : collect(),
+            'units' => $units,
+            'unitStates' => $unitStates->all(),
         ]);
     }
 
@@ -62,28 +75,24 @@ class GuestBorrowingController extends Controller
             }
 
             $unavailable = $units->first(
-                fn (ItemUnit $unit) => ! $unit->isBorrowable()
+                fn (ItemUnit $unit) => ! $this->equipmentSchedule->isPhysicallyBorrowable($unit)
             );
 
             if ($unavailable) {
                 throw ValidationException::withMessages([
                     'item_unit_ids' => ($unavailable->asset_number ?: $unavailable->item?->display_name)
-                        .' is no longer available. The equipment list has been refreshed.',
+                        .' is currently borrowed, under maintenance, lost, archived, or not in a borrowable condition.',
                 ]);
             }
 
-            $hasConflict = DB::table('borrowing_items')
-                ->join('borrowings', 'borrowings.id', '=', 'borrowing_items.borrowing_id')
-                ->whereIn('borrowing_items.item_unit_id', $unitIds)
-                ->where('borrowings.campus', $campus)
-                ->whereIn('borrowings.status', ['pending', 'approved', 'released', 'overdue'])
-                ->where('borrowings.borrow_at', '<', $request->validated('expected_return_at'))
-                ->where('borrowings.expected_return_at', '>', $request->validated('borrow_at'))
-                ->exists();
-
-            if ($hasConflict) {
+            if ($this->equipmentSchedule->conflictExists(
+                $unitIds,
+                $campus,
+                $request->validated('borrow_at'),
+                $request->validated('expected_return_at')
+            )) {
                 throw ValidationException::withMessages([
-                    'item_unit_ids' => 'One or more selected units have an overlapping borrowing schedule.',
+                    'item_unit_ids' => 'One or more selected units are reserved for the selected date or have an overlapping borrowing schedule.',
                 ]);
             }
 
@@ -136,11 +145,6 @@ class GuestBorrowingController extends Controller
                     'item_unit_id' => $unit->id,
                 ]);
 
-                $unit->update([
-                    'availability_status' => 'reserved',
-                ]);
-
-                $unit->item?->refreshQuantities();
             }
 
             return $borrowing;
@@ -172,6 +176,7 @@ class GuestBorrowingController extends Controller
             'approved_at' => $borrowing->approved_at?->toIso8601String(),
             'released_at' => $borrowing->released_at?->toIso8601String(),
             'returned_at' => $borrowing->returned_at?->toIso8601String(),
+            'returned_to_office_at' => $borrowing->returned_to_office_at?->toIso8601String(),
             'updated_at' => $borrowing->updated_at?->toIso8601String(),
             'items' => $borrowing->items->map(fn ($line) => [
                 'id' => $line->itemUnit?->id,
@@ -187,17 +192,54 @@ class GuestBorrowingController extends Controller
     {
         $data = $request->validate([
             'campus' => ['required', Rule::in(CampusAccess::options())],
+            'borrow_at' => ['nullable', 'date'],
+            'expected_return_at' => ['nullable', 'date', 'after:borrow_at'],
         ]);
 
         $campus = $data['campus'];
+        $borrowAt = filled($data['borrow_at'] ?? null)
+            ? Carbon::parse($data['borrow_at'])
+            : null;
+        $expectedReturnAt = filled($data['expected_return_at'] ?? null)
+            ? Carbon::parse($data['expected_return_at'])
+            : null;
+
+        $units = $this->units($campus);
+        $states = $this->equipmentSchedule->states(
+            $units,
+            $campus,
+            $borrowAt,
+            $expectedReturnAt
+        );
 
         return response()->json([
             'generated_at' => now()->toIso8601String(),
             'campus' => $campus,
-            'units' => $this->units($campus)
-                ->map(fn (ItemUnit $unit) => $this->unitPayload($unit))
+            'units' => $units
+                ->map(fn (ItemUnit $unit) => $this->unitPayload(
+                    $unit,
+                    $states->get($unit->id, [])
+                ))
                 ->values(),
         ]);
+    }
+
+    public function returnedToOffice(Request $request, string $token): RedirectResponse
+    {
+        $borrowing = $this->publicBorrowing($token);
+
+        abort_unless(in_array($borrowing->status, ['released', 'overdue'], true), 422);
+
+        if (! $borrowing->returned_to_office_at) {
+            $borrowing->update([
+                'returned_to_office_at' => now(),
+            ]);
+        }
+
+        return back()->with(
+            'success',
+            'Return reported successfully. Please hand the equipment to LabTech staff. The item remains marked as Borrowed until staff completes the official return inspection.'
+        );
     }
 
     public function qr(string $token): Response
@@ -244,7 +286,7 @@ class GuestBorrowingController extends Controller
             ->get();
     }
 
-    private function unitPayload(ItemUnit $unit): array
+    private function unitPayload(ItemUnit $unit, array $state = []): array
     {
         return [
             'id' => $unit->id,
@@ -254,7 +296,9 @@ class GuestBorrowingController extends Controller
             'campus' => $unit->campus,
             'location' => $unit->location ?: $unit->item?->location,
             'availability_status' => $unit->availability_status,
-            'selectable' => $unit->isBorrowable(),
+            'display_status' => $state['display_status'] ?? $unit->availability_status,
+            'reservation_note' => $state['reservation_note'] ?? null,
+            'selectable' => (bool) ($state['selectable'] ?? $unit->isReservable()),
         ];
     }
 

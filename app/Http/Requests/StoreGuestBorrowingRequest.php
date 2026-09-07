@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests;
 
-use App\Support\CampusAccess;
 use App\Models\Setting;
+use App\Support\CampusAccess;
 use Carbon\Carbon;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -16,6 +16,21 @@ class StoreGuestBorrowingRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $campus = CampusAccess::normalize(
+            is_string($this->input('campus'))
+                ? $this->input('campus')
+                : null
+        );
+
+        if ($campus !== null) {
+            $this->merge([
+                'campus' => $campus,
+            ]);
+        }
+    }
+
     public function rules(): array
     {
         $maximumItems = max(
@@ -26,7 +41,10 @@ class StoreGuestBorrowingRequest extends FormRequest
         $minimumBorrowAt = now()->startOfMinute()->toDateTimeString();
 
         return [
-            'role' => ['required', Rule::in(['student', 'professor', 'faculty_staff'])],
+            'role' => [
+                'required',
+                Rule::in(['student', 'professor', 'faculty_staff']),
+            ],
             'full_name' => ['required', 'string', 'max:180'],
             'id_number' => [
                 'nullable',
@@ -35,18 +53,58 @@ class StoreGuestBorrowingRequest extends FormRequest
                 'max:40',
             ],
             'email' => ['required', 'email', 'max:255'],
-            'campus' => ['required', Rule::in(CampusAccess::options())],
+            'campus' => [
+                'required',
+                Rule::in(CampusAccess::options()),
+            ],
             'room' => ['required', 'string', 'max:120'],
-            'program' => ['nullable', 'required_if:role,student', 'string', 'max:180'],
-            'year_level' => ['nullable', 'required_if:role,student', 'string', 'max:40'],
-            'section' => ['nullable', 'required_if:role,student', 'string', 'max:80'],
-            'department' => ['nullable', 'required_if:role,professor', 'string', 'max:180'],
+            'program' => [
+                'nullable',
+                'required_if:role,student',
+                'string',
+                'max:180',
+            ],
+            'year_level' => [
+                'nullable',
+                'required_if:role,student',
+                'string',
+                'max:40',
+            ],
+            'section' => [
+                'nullable',
+                'required_if:role,student',
+                'string',
+                'max:80',
+            ],
+            'department' => [
+                'nullable',
+                'required_if:role,professor',
+                'string',
+                'max:180',
+            ],
             'purpose' => ['required', 'string', 'max:1500'],
-            'borrow_at' => ['required', 'date', 'after_or_equal:'.$minimumBorrowAt],
-            'expected_return_at' => ['required', 'date', 'after:borrow_at'],
+            'borrow_at' => [
+                'required',
+                'date',
+                'after_or_equal:'.$minimumBorrowAt,
+            ],
+            'expected_return_at' => [
+                'required',
+                'date',
+                'after:borrow_at',
+            ],
             'request_notes' => ['nullable', 'string', 'max:1500'],
-            'item_unit_ids' => ['required', 'array', 'min:1', 'max:'.$maximumItems],
-            'item_unit_ids.*' => ['integer', 'distinct', 'exists:item_units,id'],
+            'item_unit_ids' => [
+                'required',
+                'array',
+                'min:1',
+                'max:'.$maximumItems,
+            ],
+            'item_unit_ids.*' => [
+                'integer',
+                'distinct',
+                'exists:item_units,id',
+            ],
             'terms_accepted' => ['accepted'],
             'privacy_accepted' => ['accepted'],
             'liability_accepted' => ['accepted'],
@@ -81,7 +139,10 @@ class StoreGuestBorrowingRequest extends FormRequest
                 return;
             }
 
-            $maximumDays = max(1, (int) Setting::getValue('max_borrow_days', 7));
+            $maximumDays = max(
+                1,
+                (int) Setting::getValue('max_borrow_days', 7)
+            );
 
             if ($borrowAt->diffInMinutes($expectedReturnAt) > $maximumDays * 1440) {
                 $validator->errors()->add(
@@ -90,9 +151,15 @@ class StoreGuestBorrowingRequest extends FormRequest
                 );
             }
 
-            $weekendAllowed = (bool) Setting::getValue('allow_weekend_borrowing', false);
+            $weekendAllowed = (bool) Setting::getValue(
+                'allow_weekend_borrowing',
+                false
+            );
 
-            if (! $weekendAllowed && ($borrowAt->isWeekend() || $expectedReturnAt->isWeekend())) {
+            if (
+                ! $weekendAllowed
+                && ($borrowAt->isWeekend() || $expectedReturnAt->isWeekend())
+            ) {
                 $validator->errors()->add(
                     'borrow_at',
                     'Weekend borrowing is currently disabled in system settings.'

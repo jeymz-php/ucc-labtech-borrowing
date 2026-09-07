@@ -1,3 +1,27 @@
+<style>
+    @keyframes ucc-loader-spin {
+        to { transform: rotate(360deg); }
+    }
+
+    @keyframes ucc-loader-progress {
+        0% { transform: translateX(-140%); }
+        50% { transform: translateX(140%); }
+        100% { transform: translateX(360%); }
+    }
+
+    .ucc-loader-ring {
+        animation: ucc-loader-spin .9s linear infinite;
+    }
+
+    .ucc-loader-progress {
+        animation: ucc-loader-progress 1.35s ease-in-out infinite;
+    }
+
+    body.ucc-is-loading {
+        overflow: hidden !important;
+    }
+</style>
+
 <div
     id="uccGlobalLoader"
     class="fixed inset-0 z-[20000] hidden items-center justify-center bg-slate-950/55 px-5 backdrop-blur-sm"
@@ -12,6 +36,7 @@
 
             <div class="relative mx-auto flex h-20 w-20 items-center justify-center">
                 <span class="ucc-loader-ring absolute inset-0 rounded-full border-4 border-white/20 border-t-white"></span>
+
                 <span class="flex h-14 w-14 items-center justify-center rounded-2xl bg-white p-2 shadow-xl">
                     <img
                         src="{{ asset('images/UCC_Logo.png') }}"
@@ -21,10 +46,17 @@
                 </span>
             </div>
 
-            <h2 id="uccGlobalLoaderTitle" class="relative mt-5 text-lg font-extrabold">
+            <h2
+                id="uccGlobalLoaderTitle"
+                class="relative mt-5 text-lg font-extrabold"
+            >
                 Please wait
             </h2>
-            <p id="uccGlobalLoaderMessage" class="relative mt-1 text-sm text-green-100">
+
+            <p
+                id="uccGlobalLoaderMessage"
+                class="relative mt-1 text-sm text-green-100"
+            >
                 UCC LabTech is processing your request.
             </p>
         </div>
@@ -33,6 +65,7 @@
             <div class="h-2 overflow-hidden rounded-full bg-gray-100">
                 <div class="ucc-loader-progress h-full w-1/3 rounded-full bg-green-700"></div>
             </div>
+
             <p class="mt-3 text-center text-xs text-gray-500">
                 Please do not close or refresh this page.
             </p>

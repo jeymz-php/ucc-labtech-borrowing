@@ -80,7 +80,7 @@
                         class="inline-flex rounded-full bg-white/15
                                px-4 py-1.5 text-xs font-semibold xl:text-sm"
                     >
-                        UCC Laboratory Services
+                        UCC LabTech Services
                     </span>
 
                     <h2

@@ -191,7 +191,16 @@
                                     </span>
                                 </td>
                                 <td class="px-5 py-4 text-gray-600">
-                                    {{ $managedUser->last_login_at?->format('M d, Y h:i A') ?? 'Never' }}
+                                    @if ($managedUser->last_login_at)
+                                        <p class="font-medium text-gray-800">
+                                            {{ $managedUser->last_login_at->format('M d, Y h:i A') }}
+                                        </p>
+                                        <p class="mt-1 text-xs text-gray-400">
+                                            {{ $managedUser->last_login_at->diffForHumans() }}
+                                        </p>
+                                    @else
+                                        <span class="text-gray-400">Never logged in</span>
+                                    @endif
                                 </td>
                                 <td class="px-5 py-4">
                                     <div class="flex flex-wrap justify-end gap-2">

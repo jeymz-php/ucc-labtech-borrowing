@@ -6,7 +6,7 @@
                 <div class="relative">
                     <span class="inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-green-200">Private staff access</span>
                     <h1 class="mt-4 text-3xl font-extrabold">Create Staff Administrator Account</h1>
-                    <p class="mt-3 max-w-2xl text-sm leading-6 text-gray-300">This protected registration page creates an active, email-verified LabTech administrator account. The private link must not be shared publicly.</p>
+                    <p class="mt-3 max-w-2xl text-sm leading-6 text-gray-300">This protected registration page creates an active, email-verified staff administrator account. Select the assigned campus and department before completing registration. The private link must not be shared publicly.</p>
                 </div>
             </div>
         </section>
@@ -26,7 +26,7 @@
 
             <div class="grid gap-5 sm:grid-cols-2">
                 <div>
-                    <label for="id_number" class="text-sm font-semibold text-gray-700">Employee / Staff ID Number</label>
+                    <label for="id_number" class="text-sm font-semibold text-gray-700">Student ID Number</label>
                     <input id="id_number" name="id_number" value="{{ old('id_number') }}" required class="mt-2 w-full rounded-xl border-gray-300 focus:border-green-600 focus:ring-green-600">
                 </div>
                 <div>
@@ -59,8 +59,18 @@
                     </select>
                 </div>
                 <div>
-                    <label for="department" class="text-sm font-semibold text-gray-700">Department / Office</label>
-                    <input id="department" name="department" value="{{ old('department') }}" required placeholder="LabTech Office" class="mt-2 w-full rounded-xl border-gray-300 focus:border-green-600 focus:ring-green-600">
+                    <label for="department" class="text-sm font-semibold text-gray-700">Department</label>
+                    <select id="department" name="department" required class="mt-2 w-full rounded-xl border-gray-300 focus:border-green-600 focus:ring-green-600">
+                        <option value="">Select department</option>
+                        @foreach ($departments as $department)
+                            <option value="{{ $department }}" @selected(old('department') === $department)>
+                                {{ $department }}
+                            </option>
+                        @endforeach
+                    </select>
+                    <p class="mt-1.5 text-xs text-gray-500">
+                        Department choices are managed by the Super Admin in System Settings.
+                    </p>
                 </div>
                 <div class="sm:col-span-2">
                     <label for="contact_number" class="text-sm font-semibold text-gray-700">Contact Number <span class="font-normal text-gray-400">(optional)</span></label>

@@ -29,6 +29,12 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
+        // Record the latest successful sign-in time so the Users page
+        // can display a real Last Login value.
+        $request->user()?->forceFill([
+            'last_login_at' => now(),
+        ])->saveQuietly();
+
         return redirect()->intended(
             RouteServiceProvider::HOME
         );

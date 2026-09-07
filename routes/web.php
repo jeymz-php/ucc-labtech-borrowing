@@ -63,6 +63,11 @@ Route::get('/guest-borrow/{token}/status', [GuestBorrowingController::class, 'st
     ->middleware('throttle:guest-live')
     ->name('guest-borrowings.status');
 
+Route::post('/guest-borrow/{token}/returned-to-office', [GuestBorrowingController::class, 'returnedToOffice'])
+    ->where('token', '[A-Za-z0-9]{64}')
+    ->middleware('throttle:guest-submit')
+    ->name('guest-borrowings.returned-to-office');
+
 Route::get('/guest-borrow/{token}/qr', [GuestBorrowingController::class, 'qr'])
     ->where('token', '[A-Za-z0-9]{64}')
     ->middleware('throttle:guest-pages')
@@ -217,6 +222,7 @@ Route::middleware([
     });
 
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::get('/notifications/feed', [NotificationController::class, 'feed'])->name('notifications.feed');
     Route::patch('/notifications/read-all', [NotificationController::class, 'readAll'])->name('notifications.read-all');
     Route::get('/notifications/{notification}', [NotificationController::class, 'read'])->name('notifications.read');
 

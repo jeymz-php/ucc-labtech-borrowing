@@ -40,7 +40,12 @@
                         <div class="text-xs text-gray-400">Return {{ $borrowing->expected_return_at?->format('M d, Y h:i A') }}</div>
                     </td>
                     <td class="px-5 py-4">{{ $borrowing->items->count() }}</td>
-                    <td class="px-5 py-4"><span class="rounded-full px-2.5 py-1 text-xs font-semibold {{ $badge }}">{{ ucfirst($borrowing->status) }}</span></td>
+                    <td class="px-5 py-4">
+                        <span class="rounded-full px-2.5 py-1 text-xs font-semibold {{ $badge }}">{{ ucfirst($borrowing->status) }}</span>
+                        @if ($borrowing->is_guest && $borrowing->returned_to_office_at && in_array($borrowing->status, ['released', 'overdue'], true))
+                            <div class="mt-2 text-[11px] font-bold text-amber-700">Returned to Office · Verify Return</div>
+                        @endif
+                    </td>
                     <td class="px-5 py-4 text-right"><a href="{{ route('borrowings.show', $borrowing) }}" class="font-semibold text-green-700 hover:text-green-900">View</a></td>
                 </tr>
             @empty
